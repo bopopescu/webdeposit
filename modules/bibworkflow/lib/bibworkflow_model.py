@@ -98,6 +98,29 @@ class Workflow(db.Model):
              str(self.modified),
              str(self.user_id),
              str(self.status))
+    
+    def __str__(self):
+        return """Workflow:
+    
+        Uuid: %s
+        Name: %s
+        User id: %s
+        Module name: %s
+        Created: %s
+        Modified: %s
+        Status: %s
+        Current object: %s
+        Counters: initial=%s, halted=%s, error=%s, finished=%s
+        Extra data: %s""" % (str(self.uuid),
+            str(self.name),
+            str(self.user_id),
+            str(self.module_name),
+            str(self.created),
+            str(self.modified),
+            str(self.status),
+            str(self.current_object),
+            str(self.counter_initial), str(self.counter_halted), str(self.counter_error), str(self.counter_finished),
+            str(self.extra_data),)
 
     @classmethod
     def get(cls, *criteria, **filters):
@@ -214,6 +237,31 @@ class WfeObject(db.Model):
                   str(self.version), str(self.parent_id), str(self.created),
                   str(self.extra_data))
         return repr
+        
+    def __str__(self):
+        return """WfeObject:
+    
+        Id: %s
+        Parent id: %s
+        Workflow id: %s
+        Created: %s
+        Modified: %s
+        Version: %s
+        DB_obj status: %s
+        Data type: %s
+        URI: %s
+        Data: %s
+        Extra data: %s""" % (str(self.id),
+            str(self.parent_id),
+            str(self.workflow_id),
+            str(self.created),
+            str(self.modified),
+            str(self.version),
+            str(self.status),
+            str(self.data_type),
+            str(self.uri),
+            str(self.data),
+            str(self.extra_data),)
 
     def __eq__(self, other):
         if isinstance(other, WfeObject):

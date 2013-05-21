@@ -188,6 +188,18 @@ class BibWorkflowObject(object):
             str(self.db_obj.extra_data)
         )
 
+    def __str__(self, log=False):
+        return """
+-------------------------------
+BibWorkflowObject
+-------------------------------
+    Extra object class: %s
+    Self status: %s
+-------------------------------
+    %s
+-------------------------------
+""" % (str(self.extra_object_class), str(self.status), self.db_obj.__str__(),)
+    
     def add_task_result(self, task_name, result):
         self.extra_data["tasks_results"][task_name] = result
 

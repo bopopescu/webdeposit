@@ -140,6 +140,14 @@ class BibWorkflowEngine(GenericWorkflowEngine):
 
     def __repr__(self):
         return "<BibWorkflow_engine(%s)>" % (self.db_obj.name,)
+        
+    def __str__(self, log=False):
+            return """-------------------------------
+BibWorkflowEngine
+-------------------------------
+    %s
+-------------------------------
+""" % (self.db_obj.__str__(),)
 
     @staticmethod
     def before_processing(objects, self):
