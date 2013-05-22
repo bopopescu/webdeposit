@@ -50,3 +50,4 @@ CFG_OBJECT_STATUS = enum(
                         RUNNING="RUNNING - Workflow in process",
                         FINISHED="FINISHED - Workflow was finished for this object"
                         )
+CFG_LOG_TYPE = enum(INFO=0, ERROR=1, DEBUG=2)

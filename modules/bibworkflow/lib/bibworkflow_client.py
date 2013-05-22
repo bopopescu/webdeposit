@@ -41,7 +41,7 @@ def run_workflow(wfe, data, stop_on_halt=False, stop_on_error=False):
                 break
         except HaltProcessing as e:
             # Processing was halted. Lets save current object and continue.
-            wfe.log.info("Processing halted!")
+            wfe.log_info(message="Processing halted!")
             wfe._objects[wfe.getCurrObjId()].save(CFG_OBJECT_VERSION.HALTED, wfe.getCurrTaskId(), workflow_id=wfe.uuid)
             wfe.save(CFG_WORKFLOW_STATUS.HALTED)
             wfe.setPosition(wfe.getCurrObjId() + 1, [0, 0])
@@ -49,9 +49,7 @@ def run_workflow(wfe, data, stop_on_halt=False, stop_on_error=False):
                 break
         except Exception as e:
             # Processing generated an exception. We print the stacktrace, save the object and continue
-            wfe.log.info("Processing error!")
-            wfe.log.info(str(e))
-            wfe.log.info(traceback.format_exc())
+            wfe.log_info(message = "Processing error! %s" % str(e), error_msg=traceback.format_exc())
             # Changing counter should be moved to wfe object together with default exception handling
             wfe.increaseCounterError()
             wfe._objects[wfe.getCurrObjId()].save(CFG_OBJECT_VERSION.HALTED, wfe.getCurrTaskId(), workflow_id=wfe.uuid)

@@ -40,7 +40,6 @@ class TaskLogging(db.Model):
                                                self.data, self.created,
                                                self.workflow_name)
 
-
 class AuditLogging(db.Model):
     __tablename__ = "bwlAUDITLOGGING"
     id = db.Column(db.Integer, primary_key=True)
@@ -60,17 +59,15 @@ class AuditLogging(db.Model):
 class WorkflowLogging(db.Model):
     __tablename__ = "bwlWORKFLOWLOGGING"
     id = db.Column(db.Integer, primary_key=True)
-    workflow_name = db.Column(db.String(255), nullable=False)
-    data = db.Column(db.String(255), nullable=False)
-    created = db.Column(db.DateTime, default=datetime.now, nullable=False)
-
-    def __init__(self, workflow_name, data, created):
-        self.workflow_name = workflow_name
-        self.data = data
-        self.created = created
+    workflow_id = db.Column(db.String(255), nullable=False)
+    type = db.Column(db.Integer, default=0, nullable=False)
+    created = db.Column(db.DateTime, default=datetime.now)
+    message = db.Column(db.String(255), default="", nullable=False)
+    error_msg = db.Column(db.String(500), default="", nullable=False)
+    extra_data = db.Column(db.JSON, default={})
 
     def __repr__(self):
-        return "<Task(%i, %s, %s, %s)>" % (self.id, self.workflow_name, self.data, self.created)
+        return "<Task(%i, %s, %s, %s)>" % (self.id, self.workflow_id, self.message, self.created)
 
 
 class Workflow(db.Model):
@@ -80,6 +77,8 @@ class Workflow(db.Model):
     created = db.Column(db.DateTime, default=datetime.now(), nullable=False)
     modified = db.Column(db.DateTime, default=datetime.now(),
                          nullable=False,  index=True)
+    created = db.Column(db.DateTime, default=datetime.now, nullable=False)
+    modified = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now, nullable=False)
     user_id = db.Column(db.Integer, default=0, nullable=False)
     extra_data = db.Column(db.JSON, default={})
     status = db.Column(db.Integer, default=0, nullable=False)

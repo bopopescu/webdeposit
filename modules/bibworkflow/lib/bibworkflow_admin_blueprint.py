@@ -63,14 +63,16 @@ def entry_details(entry_id):
     Dispalys entry details.
     """
     wfe_object = WfeObject.query.filter(WfeObject.id == entry_id).first()
-    try:
-        #object_210_w_18
-        f = open(CFG_LOGDIR + "/object_" + str(wfe_object.id) + "_w_" +
-                 str(wfe_object.workflow_id) + ".log", "r")
-        logtext = f.read()
-    except IOError:
-        # no file
-        logtext = ""
+    
+    ### Old logging
+    #try:
+    #    #object_210_w_18
+    #    f = open(CFG_LOGDIR + "/object_" + str(wfe_object.id) + "_w_" +
+    #             str(wfe_object.workflow_id) + ".log", "r")
+    #    logtext = f.read()
+    #except IOError:
+    #    # no file
+    #   logtext = ""
 
     return render_template('bibworkflow_entry_details.html',
                            entry=wfe_object, log=logtext,
@@ -84,12 +86,13 @@ def entry_details(entry_id):
 def workflow_details(workflow_id):
     w_metadata = Workflow.query.filter(Workflow.uuid == workflow_id).first()
 
-    try:
-        f = open(CFG_LOGDIR + "/workflow_" + str(workflow_id) + ".log", "r")
-        logtext = f.read()
-    except IOError:
-        # no file
-        logtext = ""
+    ### Old logging
+    #try:
+    #    f = open(CFG_LOGDIR + "/workflow_" + str(workflow_id) + ".log", "r")
+    #    logtext = f.read()
+    #except IOError:
+    #    # no file
+    #    logtext = ""
 
     return render_template('bibworkflow_workflow_details.html',
                            workflow_metadata=w_metadata,

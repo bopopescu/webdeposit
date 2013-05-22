@@ -22,8 +22,8 @@ from invenio.bibworkflow_model import WfeObject
 from datetime import datetime
 from invenio.sqlalchemyutils import db
 from invenio.bibworkflow_utils import dictproperty
-from invenio.bibworkflow_config import add_log, \
-    CFG_BIBWORKFLOW_OBJECTS_LOGDIR, CFG_OBJECT_VERSION
+from invenio.bibworkflow_config import CFG_BIBWORKFLOW_OBJECTS_LOGDIR, \
+                                       CFG_OBJECT_VERSION
 from invenio.config import CFG_TMPSHAREDDIR
 from invenio.errorlib import register_exception
 
@@ -48,13 +48,17 @@ class BibWorkflowObject(object):
                                         uri=uri)
                 self._create_db_obj()
                 self.extra_data['task_counter'] = str(task_counter)
-        self.add_log()
+        ### Old logging
+        #self.add_log()
 
     def add_log(self):
-        self.log = add_log(os.path.join(CFG_BIBWORKFLOW_OBJECTS_LOGDIR,
-                           'object_%s_%s.log' % (self.db_obj.id,
-                                                 self.db_obj.workflow_id)),
-                           'object.%s' % self.db_obj.id)
+        pass
+        ### Old logging
+        #self.log = add_log(os.path.join(CFG_BIBWORKFLOW_OBJECTS_LOGDIR,
+        #                   'object_%s_%s.log' % (self.db_obj.id,
+        #                                         self.db_obj.workflow_id)),
+        #                   'object.%s' % self.db_obj.id)
+        
         
     def get_data(self, key):
         if key not in self.db_obj.data.keys():
@@ -87,7 +91,8 @@ class BibWorkflowObject(object):
 
     def __setstate__(self, state):
         self.__dict__ = state
-        self.add_log()
+        ### Old logging
+        #self.add_log()
 
     def _update_db(self):
         db.session.commit()
