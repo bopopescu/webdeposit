@@ -22,7 +22,7 @@ __lastupdated__ = """$Date$"""
 
 from flask import render_template
 from pprint import pformat
-from invenio.bibworkflow_model import Workflow, WfeObject
+from invenio.bibworkflow_model import Workflow, BibWorkflowObject
 from invenio.bibworkflow_api import run
 import os
 from invenio.pluginutils import PluginContainer
@@ -62,7 +62,7 @@ def entry_details(entry_id):
     """
     Dispalys entry details.
     """
-    wfe_object = WfeObject.query.filter(WfeObject.id == entry_id).first()
+    wfe_object = BibWorkflowObject.query.filter(BibWorkflowObject.id == entry_id).first()
     
     ### Old logging
     #try:
@@ -131,7 +131,7 @@ def run_workflow(workflow_name, data={"data":10}):
 @blueprint.invenio_wash_urlargd({'oid': (int, 0),
                                 'of': (unicode, 'default')})
 def entry_data_preview(oid, of):
-    workflow_object = WfeObject.query.filter(WfeObject.id == oid).first()
+    workflow_object = BibWorkflowObject.query.filter(BibWorkflowObject.id == oid).first()
     return _entry_data_preview(workflow_object.data, of)
 
 
