@@ -67,25 +67,22 @@ def continue_execution(wfe, data, restart_point="restart_task", stop_on_halt=Fal
     Use stop_on_halt to stop processing the workflow if HaltProcessing is raised.
     """
     wfe.log_info("bibw_client.continue_workflow::restart_point: " + str(restart_point))
-    objects = []
-    objects = data
-    pos = objects[0].getCurrentTask()
+    pos = data[0].getCurrentTask()
 
     if restart_point == "restart_prev":
-
         pos[-1] = pos[-1] - 1
         wfe.setPosition(wfe.db_obj.current_object, pos)
     elif restart_point == "continue_next":
         pos[-1] = pos[-1] + 1
         wfe.setPosition(wfe.db_obj.current_object, pos)
-    #restart_task
     else:
+        # restart_task
         wfe.setPosition(wfe.db_obj.current_object, pos)
 
     wfe._unpickled = True
     initial_run = True
 
-    wfe._objects = objects
+    wfe._objects = data
     while True:
         try:
             if initial_run:

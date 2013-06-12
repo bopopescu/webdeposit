@@ -15,10 +15,6 @@
 ## along with Invenio; if not, write to the Free Software Foundation, Inc.,
 ## 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import os
-
-from invenio.bibworkflow_config import add_log, \
-    CFG_BIBWORKFLOW_WORKERS_LOGDIR
 from invenio.bibworkflow_worker_engine import runit, restartit, continueit
 from invenio.celery import celery
 
@@ -36,8 +32,6 @@ class worker_celery(object):
         """
         Runs the workflow with Celery
         """
-        add_log(os.path.join(CFG_BIBWORKFLOW_WORKERS_LOGDIR,
-                             "worker_celery.log"), 'celery')
         runit(wname, data, external_save=external_save)
 
     def restart(self, wid, external_save=None):
@@ -61,7 +55,7 @@ class worker_celery(object):
         """
         return self.celery_continueit.delay(oid, restart_point, external_save)
 
-    @celery.task(name='invenio.bibworkflow.workers.worker_celery.restartit')
+    @celery.task(name='invenio.bibworkflow.workers.worker_celery.continueit')
     def celery_continueit(oid, restart_point="beginning", external_save=None):
         """
         Restarts the workflow with Celery

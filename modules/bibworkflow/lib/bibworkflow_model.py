@@ -22,9 +22,8 @@ from datetime import datetime
 from sqlalchemy import desc
 from sqlalchemy.orm.exc import NoResultFound
 from invenio.sqlalchemyutils import db
-from invenio.bibworkflow_config import add_log, \
-    CFG_BIBWORKFLOW_OBJECTS_LOGDIR, \
-    CFG_OBJECT_VERSION
+from invenio.bibworkflow_config import CFG_OBJECT_VERSION,\
+    CFG_LOG_TYPE
 from invenio.config import CFG_TMPSHAREDDIR
 from invenio.bibworkflow_utils import determineDataType
 
@@ -98,6 +97,7 @@ class Workflow(db.Model):
     counter_error = db.Column(db.Integer, default=0, nullable=False)
     counter_finished = db.Column(db.Integer, default=0, nullable=False)
     module_name = db.Column(db.String(64), nullable=False)
+
 
     def __repr__(self):
         return "<Workflow(name: %s, module: %s, cre: %s, mod: %s, user_id: %s, status: %s)>" % \
@@ -215,6 +215,32 @@ class Workflow(db.Model):
         db.session.commit()
 
 
+class BibWorkflowObjectLogging(db.Model):
+    """
+    This class represent a record of a log emit by an object
+    into the database the object must be saved before using
+    this class. Indeed it needs the id of the object into
+    the database.
+    """
+    #db table definition
+    __tablename__ = 'bwlOBJECTLOGGING'
+    id = db.Column(db.Integer, primary_key=True)
+    bibworkflowobject_id = db.Column(db.Integer(255), db.ForeignKey('bwlOBJECT.id'), nullable=False)
+    type = db.Column(db.Integer, default=0, nullable=False)
+    created = db.Column(db.DateTime, default=datetime.now)
+    message = db.Column(db.String(500), default="", nullable=False)
+    error_msg = db.Column(db.TEXT, default="", nullable=False)
+    extra_data = db.Column(db.JSON, default={})
+
+    ###
+    #This function should be use only for debug purpose
+    #Normal log acces should be done throught the database
+    #That's all
+    ###
+    def __repr__(self):
+        return "<Object(%i, %s, %s, %s)>" % (self.id, self.bibworkflowobject_id, self.message, self.created)
+
+
 class BibWorkflowObject(db.Model):
     # db table definition
     __tablename__ = "bwlOBJECT"
@@ -235,18 +261,34 @@ class BibWorkflowObject(db.Model):
     status = db.Column(db.String(255), default="", nullable=False)
     data_type = db.Column(db.String(50), default=determineDataType, nullable=False)
     uri = db.Column(db.String(500), default="")
-
-    #self.extra_object_class = extra_object_class
-    #self.add_log()
+    child_logs = db.relationship("BibWorkflowObjectLogging")
 
     def get_data_by_id(self, id):
         return self.query.filter(BibWorkflowObject.id == id).first()
 
-    def add_log(self):
-        self.log = add_log(os.path.join(CFG_BIBWORKFLOW_OBJECTS_LOGDIR,
-                           'object_%s_%s.log' % (self.db_obj.id,
-                                                 self.db_obj.workflow_id)),
-                           'object.%s' % self.db_obj.id)
+    def log_info(self, message, error_msg=""):
+        log_obj = BibWorkflowObjectLogging(bibworkflowobject_id=self.id,
+                                           type=CFG_LOG_TYPE.INFO,
+                                           message=message,
+                                           error_msg=error_msg,
+                                           extra_data=self.extra_data)
+        db.session.add(log_obj)
+
+    def log_error(self, message, error_msg=""):
+        log_obj = BibWorkflowObjectLogging(bibworkflowobject_id=self.id,
+                                           type=CFG_LOG_TYPE.ERROR,
+                                           message=message,
+                                           error_msg=error_msg,
+                                           extra_data=self.extra_data)
+        db.session.add(log_obj)
+
+    def log_debug(self, message, error_msg=""):
+        log_obj = BibWorkflowObjectLogging(bibworkflowobject_id=self.id,
+                                           type=CFG_LOG_TYPE.DEBUG,
+                                           message=message,
+                                           error_msg=error_msg,
+                                           extra_data=self.extra_data)
+        db.session.add(log_obj)
 
     def _create_db_obj(self):
         db.session.add(self)
@@ -357,6 +399,8 @@ BibWorkflowObject
     def _update_db(self):
         db.session.add(self)
         db.session.commit()
+        self.log_info("Object saved")
+
         #if self.extra_object_class:
         #    extra_obj = self.extra_object_class(self)
         #    extra_obj.update()
@@ -432,19 +476,4 @@ BibWorkflowObject
         self.uri = other.uri
 
 __all__ = ['Workflow', 'BibWorkflowObject', 'WorkflowLogging',
-           'AuditLogging', 'TaskLogging']
-
-
-class HpObject(db.Model):
-    """
-    Wrapper class for WfeObjects.
-    """
-    __tablename__ = "bhpOBJECTS"
-    id = db.Column(db.Integer, primary_key=True)
-    object_id = db.Column(db.Integer, db.ForeignKey("bwlOBJECT.id"), default=None)
-    key = db.Column(db.String(255), default="empty", nullable=False)
-    value = db.Column(db.String(255), default=0)
-
-    def __repr__(self):
-        return "<HpObject(id = %s, object_id = %s, key = %s, value = %s)" \
-               % (str(self.id), str(self.object_id), self.key, self.value)
+           'AuditLogging', 'TaskLogging', 'BibWorkflowObjectLogging']

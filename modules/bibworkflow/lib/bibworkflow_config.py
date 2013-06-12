@@ -18,29 +18,7 @@
 """Invenio BibWorkflow config."""
 
 import os
-import logging
 from invenio.config import CFG_LOGDIR
-
-CFG_BIBWORKFLOW_WORKFLOWS_LOGDIR = os.path.join(CFG_LOGDIR, 'bibworkflow', 'workflows')
-CFG_BIBWORKFLOW_WORKERS_LOGDIR = os.path.join(CFG_LOGDIR, 'bibworkflow', 'workers')
-CFG_BIBWORKFLOW_OBJECTS_LOGDIR = os.path.join(CFG_LOGDIR, 'bibworkflow', 'objects')
-
-if not os.path.exists(CFG_BIBWORKFLOW_WORKFLOWS_LOGDIR):
-    os.makedirs(CFG_BIBWORKFLOW_WORKFLOWS_LOGDIR)
-if not os.path.exists(CFG_BIBWORKFLOW_WORKERS_LOGDIR):
-    os.makedirs(CFG_BIBWORKFLOW_WORKERS_LOGDIR)
-if not os.path.exists(CFG_BIBWORKFLOW_OBJECTS_LOGDIR):
-    os.makedirs(CFG_BIBWORKFLOW_OBJECTS_LOGDIR)
-
-
-def add_log(path, logger):
-    logger = logging.getLogger(logger)
-    handler = logging.FileHandler(path)
-    formatter = logging.Formatter(logging.BASIC_FORMAT)
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
-    return logger
-
 
 def enum(**enums):
     return type('Enum', (), enums)

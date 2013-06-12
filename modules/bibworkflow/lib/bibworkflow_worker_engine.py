@@ -158,6 +158,7 @@ def prepare_objects(data, workflow_object):
     for d in data:
         if isinstance(d, BibWorkflowObject):
             if d.id:
+                d.log_debug("Object found for process")
                 objects.append(_prepare_objects_helper(d, workflow_object))
             else:
                 objects.append(d)
@@ -189,12 +190,14 @@ def prepare_objects(data, workflow_object):
 def _prepare_objects_helper(obj, workflow_object):
     assert obj
     if obj.version == CFG_OBJECT_VERSION.INITIAL:
+        obj.log_debug("State: Initial")
         new_id = obj._create_version_obj(workflow_id=workflow_object.uuid,
                                          version=CFG_OBJECT_VERSION.RUNNING,
                                          parent_id=obj.id,
                                          no_update=True)
         return BibWorkflowObject.query.filter(BibWorkflowObject.id == new_id).first()
     elif obj.version in (CFG_OBJECT_VERSION.HALTED, CFG_OBJECT_VERSION.FINAL):
+        obj.log_debug("State: Halted or Final")
         #creating INITIAL object
         #for FINAL version: maybe it should set parent_id to the previous final object
         new_initial = obj._create_version_obj(workflow_id=workflow_object.uuid,
@@ -206,12 +209,12 @@ def _prepare_objects_helper(obj, workflow_object):
                                          no_update=True)
         return BibWorkflowObject.query.filter(BibWorkflowObject.id == new_id).first()
     elif obj.version == CFG_OBJECT_VERSION.RUNNING:
-        #YOU SHALL NOT PASS
-        #object shuld be deleted restart from INITIAL
-        print """You want to restart from temporary object.
+        # object shuld be deleted restart from INITIAL
+        obj.log_debug("State: Running")
+        obj.log_info("""WARNING! You want to restart from temporary object.
 We can't guaranty that data object is not corrupted.
 Workflow will start from associated INITIAL object
-and RUNNING object will be deleted."""
+and RUNNING object will be deleted.""")
 
         parent_obj = BibWorkflowObject.query.filter(BibWorkflowObject.id == obj.parent_id).first()
         new_initial = parent_obj._create_version_obj(workflow_id=workflow_object.uuid,
