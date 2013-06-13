@@ -76,7 +76,7 @@ class WorkflowLogging(db.Model):
     extra_data = db.Column(db.JSON, default={})
 
     def __repr__(self):
-        return "<Task(%i, %s, %s, %s)>" % (self.id, self.workflow_id, self.message, self.created)
+        return "Workflow log: %i, %s, %s, %s" % (self.id, self.workflow_id, self.message, self.created)
 
 
 class Workflow(db.Model):
@@ -336,6 +336,9 @@ BibWorkflowObject
     def changeStatus(self, message):
         self.status = message
 
+    def getCurrentTask(self):
+        return self.extra_data["task_counter"]
+
     def _create_version_obj(self, workflow_id, version, parent_id=None, no_update=False):
         obj = BibWorkflowObject(data=self.data,
                                 workflow_id=workflow_id,
@@ -370,38 +373,8 @@ BibWorkflowObject
         if not workflow_id:
             workflow_id = self.workflow_id
 
-        if version:
-            self.version = version
-            self._update_db()
-        else:
-            pass
-            #self.version = CFG_OBJECT_VERSION.INITIAL
-        #if version:
-        #    if version is CFG_OBJECT_VERSION.HALTED:
-        #        if self.version is CFG_OBJECT_VERSION.HALTED or self.version is None:
-        #            self.version = CFG_OBJECT_VERSION.HALTED
-        ##            self._update_db()
-         #           return int(self.id)
-         #       else:
-         #           obj_to_update = BibWorkflowObject.query.find(BibWorkflowObject.workflow_id == self.workflow_id,\
-         #                                                        BibWorkflowObject.version == CFG_OBJECT_VERSION.HALTED).first()
-         #           self.version = CFG_OBJECT_VERSION.HALTED
-         #           if obj_to_update:
-         #               pass
-         #           return int(self._create_version_obj(workflow_id, CFG_OBJECT_VERSION.HALTED, self.id))
-         #   elif version is CFG_OBJECT_VERSION.FINAL:
-         #       if self.version is CFG_OBJECT_VERSION.FINAL or self.version is None:
-        #            self.version = CFG_OBJECT_VERSION.FINAL
-        #            self._update_db()
-        #            return int(self.id)
-        #        else:
-        #            #create new because of v_error or v_init
-        #            return int(self._create_version_obj(workflow_id, CFG_OBJECT_VERSION.FINAL, self.id))
-        #else:
-        #    # version == 0
-        #    # First save of the object (original version)
-        #    self._create_version_obj(workflow_id, CFG_OBJECT_VERSION.INITIAL)
-        #    #self.get_log().info('Saved in db')
+        self.version = version
+        self._update_db()
 
     def save_to_file(self, directory=CFG_TMPSHAREDDIR,
                      prefix="bibworkflow_object_data_", suffix=".obj"):

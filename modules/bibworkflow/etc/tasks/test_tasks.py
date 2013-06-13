@@ -24,6 +24,7 @@ from invenio.bibworkflow_config import CFG_OBJECT_STATUS
 def task_a(a):
     def _task_a(obj, eng):
         """Function task_a docstring"""
+        print "executing task a " + str(a)
         eng.log_info("executing task a " + str(a))
         obj.data['data'] += a
         #obj.add_metadata("foo", "bar")
@@ -32,7 +33,8 @@ def task_a(a):
 
 def task_b(obj, eng):
     """Function task_b docstring"""
-    eng.log.info("executing task b")
+    print "executing task b"
+    eng.log_info("executing task b")
     if obj.data['data'] < 20:
         obj.changeStatus(CFG_OBJECT_STATUS.ERROR)
         eng.log_info("Object status %s" % (obj.status,))

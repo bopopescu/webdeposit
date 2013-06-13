@@ -157,7 +157,7 @@ BibWorkflowEngine
         # 1. Save workflow (ourselves).
         if not self.db_obj.uuid:
             self.save()
-        self.setCounterInitial(objects)
+        self.setCounterInitial(len(objects))
         self.log_info("Workflow has been started")
         # 2. We want to save all the objects as version 0.
         for o in objects:
@@ -170,11 +170,11 @@ BibWorkflowEngine
                 continue
             # Set the current workflow id in the object
             if o.version == CFG_OBJECT_VERSION.INITIAL \
-               and o.workflow_id is not None:
-                pass
+              and o.workflow_id is not None:
+               pass
             else:
                 o.workflow_id = self.uuid
-            o.save(CFG_OBJECT_VERSION.INITIAL)
+            o.save(o.version)
         GenericWorkflowEngine.before_processing(objects, self)
 
     @staticmethod
@@ -215,17 +215,11 @@ BibWorkflowEngine
         self.external_save = external_save
         super(BibWorkflowEngine, self).process(objects)
 
-    def restart(self, obj, task, objects=None, external_save=None):
+    def restart(self, obj, task, external_save=None):
         """Restart the workflow engine after it was deserialized
 
         """
         self.log_info("Restarting workflow from %s object and %s task" % (str(obj), str(task),))
-
-        ### Should be removed
-        if self._unpickled is not True:
-            raise Exception("You can call this method only after loading serialized engine")
-        if len(self.getCallbacks(key=None)) == 0:
-            raise Exception("The callbacks are empty, did you set workflows?")
 
         # set the point from which to start processing
         if obj == 'prev':# start with the previous object
@@ -247,11 +241,7 @@ BibWorkflowEngine
         else:
             raise Exception('Unknown start pointfor task: %s' % obj)
 
-        if objects:
-            self.process(objects, external_save=external_save)
-        else:
-            self.process(self._objects, external_save=external_save)
-
+        self.process(self._objects, external_save=external_save)
         self._unpickled = False
 
     @staticmethod
@@ -336,17 +326,16 @@ BibWorkflowEngine
 
             #obj.get_log().info('Success!')
             self.log_info("Done saving object: %i" % (obj.id, ))
-
         self.after_processing(objects, self)
 
     def halt(self, msg):
         """Halt the workflow (stop also any parent wfe)"""
-        print "Processing halted at task %s with message: %s" % (self.getCurrTaskId(), msg, )
+        self.log_debug("Processing halted at task %s with message: %s" % (self.getCurrTaskId(), msg, ))
         raise HaltProcessing("Processing halted at task %s with message: %s" %
                              (self.getCurrTaskId(), msg, ))
 
-    def setCounterInitial(self, obj_list):
-        self.db_obj.counter_initial = len(obj_list)
+    def setCounterInitial(self, obj_count):
+        self.db_obj.counter_initial = obj_count
         self.db_obj.counter_halted = 0
         self.db_obj.counter_error = 0
         self.db_obj.counter_finished = 0

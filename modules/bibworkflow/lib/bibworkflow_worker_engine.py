@@ -16,7 +16,7 @@
 ## 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from functools import wraps
-from invenio.bibworkflow_client import run_workflow, restart_workflow
+from invenio.bibworkflow_client import run_workflow, continue_execution
 from invenio.bibworkflow_engine import BibWorkflowEngine
 from invenio.bibworkflow_model import BibWorkflowObject, Workflow
 from invenio.bibworkflow_config import CFG_OBJECT_VERSION
@@ -32,121 +32,59 @@ def runit(wname, data, external_save=None):
     """
     wfe = BibWorkflowEngine(wname, user_id=0, module_name="aa")
     wfe.setWorkflowByName(wname)
-    wfe.setCounterInitial(data)
+    wfe.setCounterInitial(len(data))
     wfe.save()
 
-    objects = []
-    for d in data:
-        if isinstance(d, BibWorkflowObject):
-            objects.append(d)
-        else:
-            parsed_dict = parseDictionary(d, wfe.db_obj.uuid)
-            if parsed_dict['id']:
-                obj = BibWorkflowObject.query.filter(BibWorkflowObject.id == parsed_dict['id']).first()
-                if not obj:
-                    pass
-                    raise exception
-                if obj.version == CFG_OBJECT_VERSION.INITIAL:
-                    new_id = obj._create_version_obj(workflow_id=wfe.uuid,
-                                                     version=CFG_OBJECT_VERSION.RUNNING,
-                                                     parent_id=obj.id,
-                                                     no_update=True)
-                    objects.append(BibWorkflowObject.query.filter(BibWorkflowObject.id == new_id).first())
-                    #objects.append(BibWorkflowObject(data=parsed_dict['data'],
-                    #                                 workflow_id=parsed_dict['workflow_id'],
-                    #                                 version=CFG_OBJECT_VERSION.RUNNING,
-                    #                                 parent_id=obj.id,
-                    #                                 extra_data=parsed_dict['extra_data'],
-                    #                                 data_type=parsed_dict['data_type'],
-                    #                                 uri=parsed_dict['uri']))
-                elif obj.version in (CFG_OBJECT_VERSION.HALTED, CFG_OBJECT_VERSION.FINAL):
-                    #creating INITIAL object
-                    #for FINAL version: maybe it should set parent_id to the previous final object
-                    new_initial = obj._create_version_obj(workflow_id=wfe.uuid,
-                                                          version=CFG_OBJECT_VERSION.INITIAL,
-                                                          no_update=True)
-                    new_id = obj._create_version_obj(workflow_id=wfe.uuid,
-                                                     version=CFG_OBJECT_VERSION.RUNNING,
-                                                     parent_id=new_initial,
-                                                     no_update=True)
-                    objects.append(BibWorkflowObject.query.filter(BibWorkflowObject.id == new_id).first())
-                elif obj.version == CFG_OBJECT_VERSION.RUNNING:
-                    #YOU SHALL NOT PASS
-                    #object shuld be deleted restart from INITIAL
-                    print """You want to restart from temporary object.
-We can't guaranty that data object is not corrupted.
-Workflow will start from associated INITIAL object
-and RUNNING object will be deleted."""
-
-                    parent_obj = BibWorkflowObject.query.filter(BibWorkflowObject.id == obj.parent_id).first()
-                    new_initial = parent_obj._create_version_obj(workflow_id=wfe.uuid,
-                                                          version=CFG_OBJECT_VERSION.INITIAL,
-                                                          no_update=True)
-                    new_id = parent_obj._create_version_obj(workflow_id=wfe.uuid,
-                                                     version=CFG_OBJECT_VERSION.RUNNING,
-                                                     parent_id=new_initial,
-                                                     no_update=True)
-                    tmp_obj = BibWorkflowObject.query.filter(BibWorkflowObject.id == new_id).first()
-                    objects.append(BibWorkflowObject.query.filter(BibWorkflowObject.id == new_id).first())
-                    db.session.delete(obj)
-                else:
-                    from Exception import ValueError
-                    raise ValueError
-            else:
-                print "I'm in else"
-                print parsed_dict
-                new_initial = BibWorkflowObject(data=parsed_dict['data'],
-                                                workflow_id=parsed_dict['workflow_id'],
-                                                version=CFG_OBJECT_VERSION.INITIAL,
-                                                parent_id=None,
-                                                extra_data=parsed_dict['extra_data'],
-                                                data_type=parsed_dict['data_type'],
-                                                uri=parsed_dict['uri'])
-                new_initial._update_db()
-                objects.append(BibWorkflowObject(data=parsed_dict['data'],
-                                                 workflow_id=parsed_dict['workflow_id'],
-                                                 version=CFG_OBJECT_VERSION.RUNNING,
-                                                 parent_id=new_initial.id,
-                                                 extra_data=parsed_dict['extra_data'],
-                                                 data_type=parsed_dict['data_type'],
-                                                 uri=parsed_dict['uri']))
-
-    run_workflow(wfe=wfe, data=objects)
+    run_workflow(wfe=wfe, data=prepare_objects(data, wfe))
     return wfe
 
 
-def restartit(wid, data=None, restart_point="beginning", external_save=None):
+def restartit(wid, external_save=None):
     """
     Restarts workflow with given id (wid) and given data. If data are not
-    specified then it will load all initial data for workflow. Depending on
-    restart_point function can load initial or current objects.
+    specified then it will load all initial data for workflow.
 
     Data can be specified as list of objects
     or single id of WfeObject/BibWorkflowObjects.
     """
-    if data is None:
-        if isinstance(restart_point, str):
-            data = BibWorkflowObject.query.filter(BibWorkflowObject.workflow_id == wid,
-                                                  BibWorkflowObject.version == 0)
-        else:
-            data = BibWorkflowObject.query.filter(BibWorkflowObject.workflow_id == wid,
-                                                  BibWorkflowObject.child_objects is None)
-    else:
-        #restart for oid, only one object
-        if isinstance(data[0], (int, long)):
-            data = [BibWorkflowObject.query.filter(BibWorkflowObject.id == data[0]).first()]
+    data = BibWorkflowObject.query.filter(BibWorkflowObject.workflow_id == wid,
+                                          BibWorkflowObject.version == CFG_OBJECT_VERSION.INITIAL).all()
 
     workflow = Workflow.query.filter(Workflow.uuid == wid).first()
+
+    wfe = BibWorkflowEngine(workflow.name)
+    wfe.setWorkflowByName(workflow.name)
+    wfe.setCounterInitial(len(data))
+    wfe.save()
+
+    obj = prepare_objects(data,wfe)
+
+    try:
+        run_workflow(wfe, obj)
+    except:
+        wfe.log_debug("error in worker engine")
+        raise
+    return wfe
+
+
+def continueit(oid, restart_point="next_task", external_save=None):
+    """
+    Restarts workflow with given id (wid) and given data. If data are not
+    specified then it will load all initial data for workflow. Depending on
+    restart_point function can load initial or current objects.
+    """
+    data = [BibWorkflowObject.query.filter(BibWorkflowObject.id == oid).first()]
+
+    workflow = Workflow.query.filter(Workflow.uuid == data[0].workflow_id).first()
     wfe = BibWorkflowEngine(None, uuid=None, user_id=0, workflow_object=workflow,
                             module_name="module")
     wfe.setWorkflowByName(workflow.name)
 
-    # do only if not this type already
-    data = [BibWorkflowObject(d, wfe.uuid, extra_object_class=external_save) for d in data]
-
-    wfe.setCounterInitial(data)
+    wfe.setCounterInitial(len(data))
     wfe.save()
-    restart_workflow(wfe, data, restart_point)
+
+    continue_execution(wfe, data, restart_point)
+    return wfe
 
 
 def parseDictionary(d, wfe_id=None):
@@ -212,3 +150,81 @@ def parseDictionary(d, wfe_id=None):
             'parent_id': parent_id, 'id': id, 'extra_data': extra_data,
             'task_counter': task_counter, 'user_id': user_id,
             'data_type': data_type, 'uri': uri}
+
+
+def prepare_objects(data, workflow_object):
+    objects = []
+    for d in data:
+        if isinstance(d, BibWorkflowObject):
+            if d.id:
+                objects.append(_prepare_objects_helper(d, workflow_object))
+            else:
+                objects.append(d)
+        else:
+            parsed_dict = parseDictionary(d, workflow_object.uuid)
+            if parsed_dict['id']:
+                obj = BibWorkflowObject.query.filter(BibWorkflowObject.id == parsed_dict['id']).first()
+                objects.append(_prepare_objects_helper(obj,workflow_object))
+            else:
+                new_initial = BibWorkflowObject(data=parsed_dict['data'],
+                                                workflow_id=parsed_dict['workflow_id'],
+                                                version=CFG_OBJECT_VERSION.INITIAL,
+                                                parent_id=None,
+                                                extra_data=parsed_dict['extra_data'],
+                                                data_type=parsed_dict['data_type'],
+                                                uri=parsed_dict['uri'])
+                new_initial._update_db()
+                objects.append(BibWorkflowObject(data=parsed_dict['data'],
+                                                 workflow_id=parsed_dict['workflow_id'],
+                                                 version=CFG_OBJECT_VERSION.RUNNING,
+                                                 parent_id=new_initial.id,
+                                                 extra_data=parsed_dict['extra_data'],
+                                                 data_type=parsed_dict['data_type'],
+                                                 uri=parsed_dict['uri']))
+
+    return objects
+
+def _prepare_objects_helper(obj, workflow_object):
+    if not obj:
+        pass
+        raise exception
+    if obj.version == CFG_OBJECT_VERSION.INITIAL:
+        new_id = obj._create_version_obj(workflow_id=workflow_object.uuid,
+                                         version=CFG_OBJECT_VERSION.RUNNING,
+                                         parent_id=obj.id,
+                                         no_update=True)
+        return BibWorkflowObject.query.filter(BibWorkflowObject.id == new_id).first()
+    elif obj.version in (CFG_OBJECT_VERSION.HALTED, CFG_OBJECT_VERSION.FINAL):
+        #creating INITIAL object
+        #for FINAL version: maybe it should set parent_id to the previous final object
+        new_initial = obj._create_version_obj(workflow_id=workflow_object.uuid,
+                                              version=CFG_OBJECT_VERSION.INITIAL,
+                                              no_update=True)
+        new_id = obj._create_version_obj(workflow_id=workflow_object.uuid,
+                                         version=CFG_OBJECT_VERSION.RUNNING,
+                                         parent_id=new_initial,
+                                         no_update=True)
+        return BibWorkflowObject.query.filter(BibWorkflowObject.id == new_id).first()
+    elif obj.version == CFG_OBJECT_VERSION.RUNNING:
+        #YOU SHALL NOT PASS
+        #object shuld be deleted restart from INITIAL
+        print """You want to restart from temporary object.
+We can't guaranty that data object is not corrupted.
+Workflow will start from associated INITIAL object
+and RUNNING object will be deleted."""
+
+        parent_obj = BibWorkflowObject.query.filter(BibWorkflowObject.id == obj.parent_id).first()
+        new_initial = parent_obj._create_version_obj(workflow_id=workflow_object.uuid,
+                                              version=CFG_OBJECT_VERSION.INITIAL,
+                                              no_update=True)
+        new_id = parent_obj._create_version_obj(workflow_id=workflow_object.uuid,
+                                         version=CFG_OBJECT_VERSION.RUNNING,
+                                         parent_id=new_initial,
+                                         no_update=True)
+        tmp_obj = BibWorkflowObject.query.filter(BibWorkflowObject.id == new_id).first()
+        db.session.delete(obj)
+
+        return BibWorkflowObject.query.filter(BibWorkflowObject.id == new_id).first()
+    else:
+        from Exception import ValueError
+        raise ValueError

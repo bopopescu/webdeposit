@@ -21,7 +21,7 @@ BibWorkflow Unit tests - functions to test workflows
 
 from invenio.testutils import make_flask_test_suite, run_test_suite, \
     FlaskSQLAlchemyTest
-from invenio.bibworkflow_api import run
+from invenio.bibworkflow_api import run, run_by_wid, continue_oid
 from invenio.inveniomanage import db
 from invenio.bibworkflow_config import CFG_OBJECT_VERSION
 
@@ -71,8 +71,9 @@ distances from it.
         """ Clean up created objects """
         from invenio.bibworkflow_model import BibWorkflowObject, Workflow
         for wid in self.workflow_ids:
-            BibWorkflowObject.query.filter(BibWorkflowObject.workflow_id == wid).delete()
-            Workflow.query.filter(Workflow.uuid == wid).delete()
+            pass
+            #BibWorkflowObject.query.filter(BibWorkflowObject.workflow_id == wid).delete()
+            #Workflow.query.filter(Workflow.uuid == wid).delete()
         db.session.commit()
 
     def test_workflow_basic_run(self):
@@ -94,6 +95,8 @@ distances from it.
         # NOTE: ignore PEP8 here for None
         objects = BibWorkflowObject.query.filter(BibWorkflowObject.workflow_id == workflow.uuid,
                                                  BibWorkflowObject.parent_id == None)
+        all_objects = BibWorkflowObject.query.filter(BibWorkflowObject.workflow_id == workflow.uuid)
+        self.assertEqual(all_objects.count(), 2)
         self._check_workflow_execution(workflow, objects,
                                        initial_data, final_data)
 
@@ -117,6 +120,9 @@ distances from it.
                                                  BibWorkflowObject.parent_id == None)
         # Let's check that we found anything. There should only be three objects
         self.assertEqual(objects.count(), 3)
+
+        all_objects = BibWorkflowObject.query.filter(BibWorkflowObject.workflow_id == workflow.uuid)
+        self.assertEqual(all_objects.count(), 6)
 
         for obj in objects.all():
             # The child object should have the final or halted version
@@ -144,12 +150,11 @@ distances from it.
         objects = BibWorkflowObject.query.filter(BibWorkflowObject.workflow_id == workflow.uuid,
                                                  BibWorkflowObject.parent_id == None)
 
+        all_objects = BibWorkflowObject.query.filter(BibWorkflowObject.workflow_id == workflow.uuid)
+        self.assertEqual(all_objects.count(), 2)
+
         self._check_workflow_execution(workflow, objects,
                                        initial_data, None)
-
-    def test_workflow_continue(self):
-        """Test continuing workflow for given object and point"""
-        pass
 
     def test_workflow_for_halted_object(self):
         """Test starting workflow with halted object given"""
@@ -166,11 +171,14 @@ distances from it.
                                        version=CFG_OBJECT_VERSION.HALTED)
         obj_halted._update_db()
 
-        workflow = run('test_workflow', [{'id': obj_halted.id}])
+        workflow = run('test_workflow', [{'id': obj_halted.id}], task_queue=False)
 
         final_data = {'data': 2}
         objects = BibWorkflowObject.query.filter(BibWorkflowObject.workflow_id == workflow.uuid,
                                                  BibWorkflowObject.parent_id == None)
+
+        all_objects = BibWorkflowObject.query.filter(BibWorkflowObject.workflow_id == workflow.uuid)
+        self.assertEqual(all_objects.count(), 2)
 
         # Check the workflow execution
         self._check_workflow_execution(workflow, objects, halted_data, final_data)
@@ -197,11 +205,14 @@ distances from it.
                                        version=CFG_OBJECT_VERSION.FINAL)
         obj_final._update_db()
 
-        workflow = run('test_workflow', [{'id': obj_final.id}])
+        workflow = run('test_workflow', [{'id': obj_final.id}], task_queue=False)
 
         final_data = {'data': 62}
         objects = BibWorkflowObject.query.filter(BibWorkflowObject.workflow_id == workflow.uuid,
                                                  BibWorkflowObject.parent_id == None)
+
+        all_objects = BibWorkflowObject.query.filter(BibWorkflowObject.workflow_id == workflow.uuid)
+        self.assertEqual(all_objects.count(), 2)
 
         # Check the workflow execution
         self._check_workflow_execution(workflow, objects, first_final_data, final_data)
@@ -227,12 +238,14 @@ distances from it.
                                         parent_id=obj_init.id,
                                         version=CFG_OBJECT_VERSION.RUNNING)
         obj_running._update_db()
-        print "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa %s" % str(obj_running.id)
-        workflow = run('test_workflow', [{'id': obj_running.id}])
+        workflow = run('test_workflow', [{'id': obj_running.id}], task_queue=False)
 
         final_data = {'data': 41}
         objects = BibWorkflowObject.query.filter(BibWorkflowObject.workflow_id == workflow.uuid,
                                                  BibWorkflowObject.parent_id == None)
+
+        all_objects = BibWorkflowObject.query.filter(BibWorkflowObject.workflow_id == workflow.uuid)
+        self.assertEqual(all_objects.count(), 2)
 
         # Check the workflow execution
         self._check_workflow_execution(workflow, objects, initial_data, final_data)
@@ -244,6 +257,75 @@ distances from it.
         self.assertEqual(obj_init.workflow_id, "11")
         objects = BibWorkflowObject.query.filter(BibWorkflowObject.id == obj_running.id)
         self.assertEqual(objects.count(), 0)
+
+    def test_continue_execution_for_object(self):
+        """Tests continuing execution of workflow for object given object from \
+        prev, current and next task"""
+        from invenio.bibworkflow_model import BibWorkflowObject
+
+        initial_data = {'data': 1}
+        final_data_prev = {'data': 3}
+        final_data_curr = {'data': 2}
+        final_data_next = {'data': 9}
+
+        # testing restarting from previous task
+        init_workflow = run("test_workflow", data=[{"data": initial_data}], task_queue=False)
+
+        obj_halted = BibWorkflowObject.query.filter(BibWorkflowObject.workflow_id == init_workflow.uuid,
+                                                    BibWorkflowObject.version == CFG_OBJECT_VERSION.HALTED).first()
+        workflow = continue_oid(obj_halted.id, "restart_prev", task_queue=False)
+        object = BibWorkflowObject.query.filter(BibWorkflowObject.id == obj_halted.id)
+        self.assertEqual(object.count(), 1)
+        self.assertEqual(object[0].data, final_data_prev)
+
+        all_objects = BibWorkflowObject.query.filter(BibWorkflowObject.workflow_id == workflow.uuid)
+        self.assertEqual(all_objects.count(), 2)
+
+        # testing restarting from current task
+        init_workflow2 = run("test_workflow", data=[{"data": initial_data}], task_queue=False)
+
+        obj_halted2 = BibWorkflowObject.query.filter(BibWorkflowObject.workflow_id == init_workflow2.uuid,
+                                                     BibWorkflowObject.version == CFG_OBJECT_VERSION.HALTED).first()
+        workflow2 = continue_oid(obj_halted.id, "restart_task", task_queue=False)
+        object2 = BibWorkflowObject.query.filter(BibWorkflowObject.id == obj_halted2.id)
+        self.assertEqual(object2.count(), 1)
+        self.assertEqual(object2[0].data, final_data_curr)
+
+        all_objects2 = BibWorkflowObject.query.filter(BibWorkflowObject.workflow_id == workflow2.uuid)
+        self.assertEqual(all_objects2.count(), 2)
+
+        # testing continuing from next task
+        init_workflow3 = run("test_workflow", data=[{"data": initial_data}], task_queue=False)
+
+        obj_halted3 = BibWorkflowObject.query.filter(BibWorkflowObject.workflow_id == init_workflow3.uuid,
+                                                     BibWorkflowObject.version == CFG_OBJECT_VERSION.HALTED).first()
+        workflow3 = continue_oid(obj_halted3.id, "continue_next", task_queue=False)
+        object3 = BibWorkflowObject.query.filter(BibWorkflowObject.id == obj_halted3.id)
+        self.assertEqual(object3.count(), 1)
+        self.assertEqual(object3[0].data, final_data_next)
+
+        all_objects3 = BibWorkflowObject.query.filter(BibWorkflowObject.workflow_id == workflow3.uuid)
+        self.assertEqual(all_objects3.count(), 2)
+
+    def test_restart_workflow(self):
+        """Tests restarting workflow for given workflow id"""
+        from invenio.bibworkflow_model import BibWorkflowObject, WorkflowLogging
+        from invenio.bibworkflow_api import continue_oid
+
+        initial_data = {'data': 1}
+
+        # testing restarting from previous task
+        init_workflow = run("test_workflow", data=[{"data": initial_data}], task_queue=False)
+        init_objects = BibWorkflowObject.query.filter(BibWorkflowObject.workflow_id == init_workflow.uuid)
+
+        restarted_workflow = run_by_wid(init_workflow.uuid, task_queue=False)
+        restarted_objects = BibWorkflowObject.query.filter(BibWorkflowObject.workflow_id == restarted_workflow.uuid)
+
+        self.assertEqual(restarted_objects.count(), 1)
+
+        self.assertEqual(restarted_objects[0].version, init_objects[1].version)
+        self.assertEqual(restarted_objects[0].parent_id, init_objects[0].id)
+        self.assertEqual(restarted_objects[0].data, init_objects[1].data)
 
     def _check_workflow_execution(self, workflow, objects,
                                   initial_data, final_data):
