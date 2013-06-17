@@ -28,6 +28,7 @@ from invenio.bibfield_jsonreader import JsonReader
 from tempfile import mkstemp
 from invenio.bibtask import task_low_level_submission
 from invenio.config import CFG_TMPSHAREDDIR
+from invenio.dbquery import run_sql
 
 """
     Functions to implement workflows
@@ -85,6 +86,7 @@ def wait_for_submission():
 
 
 def export_marc_from_json():
+    """ Exports marc from json using BibField """
     def export(obj, eng):
         user_id = obj.data['user_id']
         uuid = eng.uuid
@@ -110,16 +112,31 @@ def export_marc_from_json():
         json_reader['collection.primary'] = \
             deposition_conf.get_collection() or deposition_type
 
-        if 'recid' in json_reader or 'record ID' in json_reader:
-            obj.data['update_record'] = True
+        if 'recid' not in json_reader or 'record ID' not in json_reader:
+            # Record is new, reserve record id
+            recid = run_sql("INSERT INTO bibrec (creation_date, modification_date) VALUES (NOW(), NOW())")
+            json_reader['recid'] = recid
+            obj.data['recid'] = recid
         else:
-            obj.data['update_record'] = False
+            obj.data['recid'] = json_reader['recid']
+            obj.data['title'] = json_reader['title.title']
+
+        workflow = Workflow.query.filter(Workflow.uuid == uuid).one()
+        workflow.extra_data['recid'] = obj.data['recid']
+        Workflow.query.filter(Workflow.uuid == uuid).update({'extra_data': workflow.extra_data})
+
+
         marc = json_reader.legacy_export_as_marc()
         obj.data['marc'] = marc
     return export
 
 
 def create_record_from_marc():
+    """ Generates the record from marc.
+    The function requires the marc to be generated,
+    so the function export_marc_from_json must have been called successfully
+    before
+    """
     def create(obj, dummy_eng):
         marc = obj.data['marc']
         tmp_file_fd, tmp_file_name = mkstemp(suffix='.marcxml',
@@ -130,12 +147,7 @@ def create_record_from_marc():
         os.close(tmp_file_fd)
         os.chmod(tmp_file_name, 0644)
 
-        if obj.data['update_record']:
-            obj.data['task_id'] = task_low_level_submission('bibupload',
-                                                            'webdeposit', '-r',
-                                                            tmp_file_name)
-        else:
-            obj.data['task_id'] = task_low_level_submission('bibupload',
-                                                            'webdeposit', '-i',
-                                                            tmp_file_name)
+        obj.data['task_id'] = task_low_level_submission('bibupload',
+                                                        'webdeposit', '-r',
+                                                        tmp_file_name)
     return create

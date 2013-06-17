@@ -54,7 +54,9 @@ from invenio.webdeposit_utils import get_current_form, \
     create_user_file_system, \
     CFG_DRAFT_STATUS, \
     url_upload,\
-    get_all_drafts
+    get_all_drafts, \
+    deposit_files, \
+    delete_file
 from invenio.webuser_flask import current_user
 from invenio.bibworkflow_config import CFG_WORKFLOW_STATUS
 
@@ -99,84 +101,13 @@ def plupload(deposition_type, uuid):
 
         @return: the path of the uploaded file
     """
-    if request.method == 'POST':
-        try:
-            chunks = request.form['chunks']
-            chunk = request.form['chunk']
-        except KeyError:
-            chunks = None
-            pass
-        name = request.form['name']
-        current_chunk = request.files['file']
-
-        try:
-            filename = secure_filename(name) + "_" + chunk
-        except UnboundLocalError:
-            filename = secure_filename(name)
-
-        CFG_USER_WEBDEPOSIT_FOLDER = create_user_file_system(current_user.get_id(),
-                                                             deposition_type,
-                                                             uuid)
-
-        # Save the chunk
-        current_chunk.save(os.path.join(CFG_USER_WEBDEPOSIT_FOLDER, filename))
-
-        unique_filename = ""
-
-        if chunks is None:  # file is a single chunk
-            unique_filename = str(new_uuid()) + filename
-            old_path = os.path.join(CFG_USER_WEBDEPOSIT_FOLDER, filename)
-            file_path = os.path.join(CFG_USER_WEBDEPOSIT_FOLDER,
-                                     unique_filename)
-            os.rename(old_path, file_path)  # Rename the chunk
-            size = os.path.getsize(file_path)
-            file_metadata = dict(name=name, file=file_path, size=size)
-            draft_field_list_add(current_user.get_id(), uuid,
-                                 "files", file_metadata)
-        elif int(chunk) == int(chunks) - 1:
-            '''All chunks have been uploaded!
-                start merging the chunks'''
-            filename = secure_filename(name)
-            chunk_files = []
-            for chunk_file in iglob(os.path.join(CFG_USER_WEBDEPOSIT_FOLDER,
-                                                 filename + '_*')):
-                chunk_files.append(chunk_file)
-
-            # Sort files in numerical order
-            chunk_files.sort(key=lambda x: int(x.split("_")[-1]))
-
-            unique_filename = str(new_uuid()) + filename
-            file_path = os.path.join(CFG_USER_WEBDEPOSIT_FOLDER,
-                                     unique_filename)
-            destination = open(file_path, 'wb')
-            for chunk in chunk_files:
-                shutil.copyfileobj(open(chunk, 'rb'), destination)
-                os.remove(chunk)
-            destination.close()
-            size = os.path.getsize(file_path)
-            file_metadata = dict(name=name, file=file_path, size=size)
-            draft_field_list_add(current_user.get_id(), uuid,
-                                 "files", file_metadata)
-    return unique_filename
+    return deposit_files(current_user.get_id(), deposition_type, uuid)
 
 
 @blueprint.route('/plupload_delete/<uuid>', methods=['GET', 'POST'])
 @blueprint.invenio_authenticated
 def plupload_delete(uuid):
-    if request.method == 'POST':
-        files = draft_field_get(current_user.get_id(), uuid, "files")
-        result = "File Not Found"
-        filename = request.form['filename']
-        files = draft_field_get(current_user.get_id(), uuid, "files")
-        for i, f in enumerate(files):
-            if filename == f['file'].split('/')[-1]:  # get the unique name from the path
-                os.remove(f['file'])
-                del files[i]
-                result = str(files) + "              "
-                draft_field_set(current_user.get_id(), uuid, "files", files)
-                result = "File " + f['name'] + " Deleted"
-                break
-    return result
+    return delete_file(current_user.get_id(), uuid)
 
 
 @blueprint.route('/plupload_get_file/<uuid>', methods=['GET'])
@@ -299,9 +230,18 @@ def index(deposition_type):
     user_id = current_user.get_id()
     drafts = draft_field_get_all(user_id, deposition_type)
 
+    from invenio.bibworkflow_model import Workflow
+    past_depositions = \
+        Workflow.get(Workflow.name == deposition_type,
+                     Workflow.user_id == user_id,
+                     Workflow.status == CFG_WORKFLOW_STATUS.FINISHED).\
+        all()
+
+    drafts = sorted(drafts, key=lambda d: d.timestamp, reverse=True)
     return render_template('webdeposit_index.html', drafts=drafts,
                            deposition_type=deposition_type,
-                           deposition_types=deposition_types)
+                           deposition_types=deposition_types,
+                           past_depositions=past_depositions)
 
 
 @blueprint.route('/<deposition_type>/<uuid>', methods=['GET', 'POST'])
@@ -346,7 +286,8 @@ def add(deposition_type, uuid):
 
     cache.delete_many(str(current_user.get_id()) + ":current_deposition_type",
                       str(current_user.get_id()) + ":current_uuid")
-    cache.add(str(current_user.get_id()) + ":current_deposition_type", deposition_type)
+    cache.add(str(current_user.get_id()) + ":current_deposition_type",
+              deposition_type)
     cache.add(str(current_user.get_id()) + ":current_uuid", uuid)
 
     current_app.config['breadcrumbs_map'][request.endpoint] = [
@@ -400,8 +341,11 @@ def add(deposition_type, uuid):
         # the `workflow.get_output` function returns also the template
         return render_template(**workflow.get_output())
     elif status == CFG_WORKFLOW_STATUS.FINISHED:
-        flash(deposition_type + _(' deposition has been successfully finished.'),
-              'success')
+        msg = deposition_type + _(' deposition has been successfully finished.')
+        recid = workflow.get_data('recid')
+        if recid is not None:
+            msg += ' Record available <a href=/record/%s>here</a>.' % recid
+        flash(msg, 'success')
         return redirect(url_for('.index_deposition_types'))
     elif status == CFG_WORKFLOW_STATUS.ERROR:
         flash(deposition_type + _(' deposition %s has returned error.'), 'error')

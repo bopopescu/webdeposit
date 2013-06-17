@@ -132,6 +132,12 @@ class DepositionWorkflow(object):
 
         return status
 
+    def get_data(self, key):
+        if key in self.bib_obj.data:
+            return self.bib_obj.data
+        else:
+            return None
+
     def get_output(self, form_validation=None):
         """ Returns a representation of the current state of the workflow
             (a dict with the variables to fill the jinja template)
