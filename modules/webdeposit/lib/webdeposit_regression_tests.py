@@ -33,7 +33,11 @@ class TestWebDepositUtils(InvenioTestCase):
         db.session.commit()
 
     def setUp(self):
+        from invenio.sqlalchemyutils import db
+
         self.clear_tables()
+        # db.session.execute("TRUNCATE schTASK")
+        # db.session.commit()
         super(TestWebDepositUtils, self).setUp()
 
     def tearDown(self):
@@ -118,7 +122,6 @@ class TestWebDepositUtils(InvenioTestCase):
         from invenio.webuser_flask import login_user
         login_user(1)
 
-
         wf = [render_form(forms.values()[0]),
               wait_for_submission()]
         deposition_workflow = DepositionWorkflow(deposition_type='TestWorkflow',
@@ -135,7 +138,6 @@ class TestWebDepositUtils(InvenioTestCase):
         # There is only one form in the db
         drafts = db.session.query(WebDepositDraft)
         assert len(drafts.all()) == 1
-
 
         # Test that guest user doesn't have access to the form
         uuid, form = get_current_form(0, deposition_type='TestWorkflow',
@@ -182,7 +184,6 @@ class TestWebDepositUtils(InvenioTestCase):
         from invenio.webdeposit_deposition_forms.article_form import ArticleForm
         from invenio.cache import cache
 
-
         wf = [render_form(ArticleForm)]
         user_id = 1
 
@@ -212,6 +213,100 @@ class TestWebDepositUtils(InvenioTestCase):
                    WebDepositDraft.step == 0).\
             update({"form_values": values,
                     "timestamp": datetime.now()})
+
+    def test_record_creation(self):
+        import os
+        from wtforms import TextField, TextAreaField
+        from sqlalchemy import func
+        from invenio.sqlalchemyutils import db
+        from invenio.webdeposit_load_deposition_types import \
+            deposition_metadata
+        from invenio.bibworkflow_config import CFG_WORKFLOW_STATUS
+        from invenio.webdeposit_model import WebDepositDraft
+        from invenio.bibsched_model import SchTASK
+        from invenio.webdeposit_utils import get_current_form, \
+            create_workflow, set_form_status, CFG_DRAFT_STATUS
+        from invenio.webuser_flask import login_user
+        from invenio.webdeposit_workflow_utils import \
+            create_record_from_marc
+        from invenio.search_engine import record_exists
+        from invenio.cache import cache
+        from invenio.config import CFG_PREFIX
+        from invenio.bibfield import get_record
+
+        login_user(1)
+        for deposition_type in deposition_metadata.keys():
+
+            deposition = create_workflow(deposition_type, 1)
+            assert deposition is not None
+
+            # Check if deposition creates a record
+            create_rec = create_record_from_marc()
+            function_exists = False
+            for workflow_function in deposition.workflow:
+                if create_rec.func_code == workflow_function .func_code:
+                    function_exists = True
+            if not function_exists:
+                # if a record is not created,
+                #continue with the next deposition
+                continue
+
+            uuid = deposition.get_uuid()
+
+            cache.delete_many("1:current_deposition_type", "1:current_uuid")
+            cache.add("1:current_deposition_type", deposition_type)
+            cache.add("1:current_uuid", uuid)
+
+            # Run the workflow
+            deposition.run()
+            # Create form's json based on the field name
+            form = get_current_form(1, deposition_type, uuid)[1]
+            webdeposit_json = {}
+            value_inserted = False
+            for field in form:
+                if isinstance(field, TextField) or \
+                   isinstance(field, TextAreaField):
+                    webdeposit_json[field.name] = "test value"
+                    value_inserted = True
+            webdeposit_draft = \
+                WebDepositDraft(uuid=uuid,
+                                form_type=form.__class__.__name__,
+                                form_values=webdeposit_json,
+                                step=0,  # dummy step
+                                status=CFG_DRAFT_STATUS['finished'],
+                                timestamp=func.current_timestamp())
+            db.session.add(webdeposit_draft)
+            db.session.commit()
+
+            workflow_status = CFG_WORKFLOW_STATUS.RUNNING
+            while workflow_status != CFG_WORKFLOW_STATUS.FINISHED:
+                # Continue workflow
+                deposition.run()
+                set_form_status(1, uuid, CFG_WORKFLOW_STATUS.FINISHED)
+                workflow_status = deposition.get_status()
+
+            # Workflow is finished. Test if record is created
+            recid = deposition.get_data('recid')
+            assert recid is not None
+            # Test that record id exists
+            assert record_exists(recid) == 1
+
+            # Test that the task exists
+            task_id = deposition.get_data('task_id')
+            assert task_id is not None
+
+            bibtask = SchTASK.query.filter(SchTASK.id == task_id).first()
+            assert bibtask is not None
+
+            # Run bibupload, bibindex, webcoll manually
+            cmd = "%s/bin/bibupload %s" % (CFG_PREFIX, task_id)
+            assert not os.system(cmd)
+
+            if value_inserted:
+                # Test if record contains the inserted value
+                rec = get_record(recid)
+                assert "test value" in rec.legacy_export_as_marc()
+
 
 TEST_SUITE = make_test_suite(TestWebDepositUtils)
 
