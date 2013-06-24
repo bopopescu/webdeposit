@@ -113,7 +113,7 @@ def workflows():
 @blueprint.route('/run_workflow', methods=['GET', 'POST'])
 @blueprint.invenio_authenticated
 @blueprint.invenio_wash_urlargd({'workflow_name': (unicode, "")})
-def run_workflow(workflow_name, data=10):
+def run_workflow(workflow_name, data={"data":10}):
     try:
         data = [{'data': data}]
         external_save = None

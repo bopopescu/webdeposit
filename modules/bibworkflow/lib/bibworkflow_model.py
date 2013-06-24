@@ -198,10 +198,11 @@ class WfeObject(db.Model):
     owner = db.Column(db.String(255))
     status = db.Column(db.String(255), default="", nullable=False)
     user_id = db.Column(db.String(255), default=0, nullable=False)
-    task_counter = db.Column(db.JSON, nullable=False)
+    task_counter = db.Column(db.JSON, default=[0], nullable=False)
     error_msg = db.Column(db.String(500), default="", nullable=False)
     last_task_name = db.Column(db.String(60), default="")
     data_type = db.Column(db.String(50), default="", nullable=False)
+    uri = db.Column(db.String(500), default="")
 
     def __repr__(self):
         repr = "<WfeObject(id = %s, data = %s, workflow_id = %s, " \
@@ -251,7 +252,8 @@ class WfeObject(db.Model):
                 "task_counter": self.task_counter,
                 "error_msg": self.error_msg,
                 "last_task_name": self.last_task_name,
-                "data_type": self.data_type}
+                "data_type": self.data_type,
+                "uri": self.uri}
 
     def __setstate__(self, state):
         self.data = state["data"]
@@ -267,6 +269,7 @@ class WfeObject(db.Model):
         self.error_msg = state["error_msg"]
         self.last_task_name = state["last_task_name"]
         self.data_type = state["data_type"]
+        self.uri = state["uri"]
 
     def copy(self, other):
         """Copies data and metadata except id and workflow_id"""
@@ -283,6 +286,7 @@ class WfeObject(db.Model):
         self.error_msg = other.error_msg
         self.last_task_name = other.last_task_name
         self.data_type = other.data_type
+        self.uri = other.uri
 
 __all__ = ['Workflow', 'WfeObject', 'WorkflowLogging',
            'AuditLogging', 'TaskLogging']

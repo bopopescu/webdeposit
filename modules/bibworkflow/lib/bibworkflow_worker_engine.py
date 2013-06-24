@@ -21,6 +21,7 @@ from invenio.bibworkflow_engine import BibWorkflowEngine
 from invenio.bibworkflow_object import BibWorkflowObject
 from invenio.bibworkflow_model import Workflow, WfeObject
 from invenio.bibworkflow_config import CFG_OBJECT_VERSION
+from invenio.errorlib import register_exception
 
 
 def set_db_context(f):
@@ -80,7 +81,18 @@ def runit(wname, data, external_save=None):
         elif isinstance(d, BibWorkflowObject):
             objects.append(d)
         else:
-            objects.append(BibWorkflowObject(d, wfe.db_obj.uuid, extra_object_class=external_save))
+            parsed_dict = parseDictionary(d, wfe.db_obj.uuid)
+            objects.append(BibWorkflowObject(data = parsed_dict['data'],
+                                             workflow_id = parsed_dict['workflow_id'],
+                                             version = parsed_dict['version'],
+                                             parent_id = parsed_dict['parent_id'],
+                                             id = parsed_dict['id'],
+                                             extra_data = parsed_dict['extra_data'],
+                                             task_counter = parsed_dict['task_counter'],
+                                             user_id = parsed_dict['user_id'],
+                                             extra_object_class=external_save,
+                                             data_type = parsed_dict['data_type'],
+                                             uri = parsed_dict['uri']))
 
     run_workflow(wfe, objects)
     return wfe
@@ -114,6 +126,90 @@ def restartit(wid, data=None, restart_point="beginning", external_save=None):
 
     # do only if not this type already
     data = [BibWorkflowObject(d, wfe.uuid, extra_object_class=external_save) for d in data]
+    
+    #objects = []
+    #for d in data:
+    #    parsed_dict = parseDictionary(d)
+    #    objects.append(BibWorkflowObject(data = parsed_dict['data'],
+    #                                         workflow_id = parsed_dict['workflow_id'],
+    #                                         version = parsed_dict['version'],
+    #                                         parent_id = parsed_dict['parent_id'],
+    #                                         id = parsed_dict['id'],
+    #                                        extra_data = parsed_dict['extra_data'],
+    #                                        task_counter = parsed_dict['task_counter'],
+    #                                         user_id = parsed_dict['user_id'],
+    #                                         extra_object_class=external_save,
+    #                                         data_type = parsed_dict['data_type'],
+    #                                         uri = parsed_dict['uri']))
+    #wfe.setCounterInitial(objects)
+    #wfe.save()
+    #restart_workflow(wfe, objects, restart_point)
+    
     wfe.setCounterInitial(data)
     wfe.save()
     restart_workflow(wfe, data, restart_point)
+
+def parseDictionary(d, wfe_id=None):
+    try:
+        data = d['data']
+    except:
+        register_exception(prefix="Data field in dictionary passed to \
+                           workflow is empty!")
+        raise
+        
+    try:
+        workflow_id = d['workflow_id']
+    except:
+        workflow_id = wfe_id
+        
+    try:
+        version = d['version']
+    except:
+        version = CFG_OBJECT_VERSION.INITIAL
+        
+    try:
+        parent_id = d['parent_id']
+    except:
+        parent_id = None
+        
+    try:
+        id = d['id']
+    except:
+        id = None
+        
+    try:
+        extra_data = d['extra_data']
+    except:
+        extra_data = None
+    
+    try:
+        task_counter = d['task_counter']
+    except:
+        task_counter = [0]
+    
+    try:
+        user_id = d['user_id']
+    except:
+        user_id = 0
+    
+    print d['data']
+    try:
+        if d['data_type'] == 'auto':
+            data_type = BibWorkflowObject.determineDataType(d['data'])
+        elif isinstance(d['data_type'], string):
+            data_type = d['data_type']
+    except:
+        data_type = None
+        
+    print "data type: %s" % data_type
+    
+    try:
+        uri = d['uri']
+    except:
+        uri = None
+        
+    return {'data': data, 'workflow_id': workflow_id, 'version':version,
+            'parent_id': parent_id, 'id':id, 'extra_data': extra_data,
+            'task_counter': task_counter, 'user_id': user_id,
+            'data_type': data_type, 'uri': uri}
+    

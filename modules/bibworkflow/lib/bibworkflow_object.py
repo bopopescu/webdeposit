@@ -25,14 +25,15 @@ from invenio.bibworkflow_utils import dictproperty
 from invenio.bibworkflow_config import add_log, \
     CFG_BIBWORKFLOW_OBJECTS_LOGDIR, CFG_OBJECT_VERSION
 from invenio.config import CFG_TMPSHAREDDIR
+from invenio.errorlib import register_exception
 
 
 class BibWorkflowObject(object):
 
     def __init__(self, data=None, workflow_id=None,
                  version=CFG_OBJECT_VERSION.INITIAL, parent_id=None,
-                 wfobject_id=None, task_counter=[0], user_id=0,
-                 extra_object_class=None):
+                 id=None, extra_data=None, task_counter=[0], user_id=0, 
+                 extra_object_class=None, data_type=None, uri=None):
         self.extra_object_class = extra_object_class
         self.status = None
         if isinstance(data, WfeObject):
@@ -41,16 +42,11 @@ class BibWorkflowObject(object):
             if wfobject_id is not None:
                 self.db_obj = WfeObject.query.filter(WfeObject.id == wfobject_id).first()
             else:
-                # If data is a dictionary and contains type key,
-                # we can directly derive the data_type
-                if isinstance(data, dict) and 'type' in data:
-                    data_type = data['type']
-                else:
-                    data_type = ""
                 self.db_obj = WfeObject(data=data, workflow_id=workflow_id,
                                         version=version, parent_id=parent_id,
                                         task_counter=task_counter,
-                                        user_id=user_id, data_type=data_type)
+                                        user_id=user_id, data_type=data_type, 
+                                        uri=uri)
                 self._create_db_obj()
         self.add_log()
 
@@ -59,27 +55,30 @@ class BibWorkflowObject(object):
                            'object_%s_%s.log' % (self.db_obj.id,
                                                  self.db_obj.workflow_id)),
                            'object.%s' % self.db_obj.id)
+        
+    def get_data(self, key):
+        if key not in self.db_obj.data.keys():
+            raise KeyError
+        return self.db_obj.data[key]
 
-    def get_data(self):
-        return self.db_obj.data
+    def set_data(self, key, value):
+        self.db_obj.data[key] = value
 
-    def set_data(self, value):
-        self.db_obj.data = value
+    data = dictproperty(fget=get_data, fset=set_data, doc="Sets up property")
+    del get_data, set_data
 
-    data = property(get_data, set_data)
-
-    def extra_data_get(self, key):
+    def get_extra_data(self, key):
         if key not in self.db_obj.extra_data.keys():
             raise KeyError
         return self.db_obj.extra_data[key]
 
-    def extra_data_set(self, key, value):
+    def set_extra_data(self, key, value):
         self.db_obj.extra_data[key] = value
 
-    extra_data = dictproperty(fget=extra_data_get, fset=extra_data_set,
+    extra_data = dictproperty(fget=get_extra_data, fset=set_extra_data,
                               doc="Sets up property")
 
-    del extra_data_get, extra_data_set
+    del get_extra_data, set_extra_data
 
     def __getstate__(self):
         state = self.__dict__.copy()
@@ -111,7 +110,8 @@ class BibWorkflowObject(object):
                         task_counter=self.db_obj.task_counter,
                         user_id=self.db_obj.user_id,
                         extra_data=self.db_obj.extra_data,
-                        status=self.status)
+                        status=self.status,
+                        data_type=self.db_obj.data_type)
         db.session.add(obj)
         db.session.commit()
         # Run extra save method
@@ -210,3 +210,26 @@ class BibWorkflowObject(object):
             os.write(tmp_fd, self.db_obj.data['data'])
             os.close(tmp_fd)
         return filename
+        
+    @staticmethod    
+    def determineDataType(data):
+        # If data is a dictionary and contains type key,
+        # we can directly derive the data_type
+        if isinstance(data, dict):
+            if data.has_key('type'):
+                data_type = data['type']
+            else:
+                data_type = 'dict'
+        else:
+            from magic import Magic
+            mime_checker = Magic(mime=True)
+                
+            # If data is not a dictionary, we try to guess MIME type
+            # by using magic library
+            try:
+                data_type = mime_checker.from_buffer(data)
+            except:
+                register_exception(stream="warning", prefix="BibWorkflowObject.determineDataType: Impossible to resolve data type.")
+                data_type = ""
+        return data_type
+        
