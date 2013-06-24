@@ -23,7 +23,7 @@ def convert_record(stylesheet="oaiarxiv2marcxml.xsl"):
         """
         from invenio.bibconvert_xslt_engine import convert
 
-        obj.db_obj.last_task_name = 'convert_record'
+        obj.extra_data["last_task_name"] = 'convert_record'
         eng.log.info("Starting conversion using %s stylesheet" %
                      (stylesheet,))
         eng.log.info("Type of data: %s" % (obj.db_obj.data_type,))
@@ -31,8 +31,8 @@ def convert_record(stylesheet="oaiarxiv2marcxml.xsl"):
             try:
                 obj.data['data'] = convert(obj.data['data'], stylesheet)
             except:
-                obj.error_msg = 'Could not convert record'
-                eng.log.error("Error: %s" % (obj.db_obj.error_msg,))
+                obj.extra_data["error_msg"] = 'Could not convert record'
+                eng.log.error("Error: %s" % (obj.extra_data["error_msg"],))
                 raise
         else:
             eng.halt("Data type not valid text/xml")
@@ -48,7 +48,7 @@ def download_fulltext(obj, eng):
     """
     from invenio.bibdocfile import download_url
 
-    obj.db_obj.last_task_name = 'download_fulltext'
+    obj.extra_data["last_task_name"] = 'download_fulltext'
     try:
         eng.log.info("Starting download of %s" % (obj.data['url']))
         url = download_url(obj.data['url'])
@@ -69,7 +69,7 @@ def match_record(obj, eng):
     from invenio.bibrecord import create_record
     from invenio.bibmatch_engine import match_records
 
-    obj.db_obj.last_task_name = 'match_record'
+    obj.extra_data["last_task_name"] = 'match_record'
     rec = create_record(obj.data['data'])
     matches = match_records(records=[rec],
                             qrystrs=[("title", "[245__a]")])

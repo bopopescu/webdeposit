@@ -26,7 +26,7 @@ class TaskLogging(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     task_name = db.Column(db.String(255), nullable=False)
     data = db.Column(db.String(255), nullable=False)
-    created = db.Column(db.DateTime, nullable=False)
+    created = db.Column(db.DateTime, default=datetime.now, nullable=False)
     workflow_name = db.Column(db.String(255), nullable=False)
 
     def __init__(self, task_name, data, created, workflow_name):
@@ -45,7 +45,7 @@ class AuditLogging(db.Model):
     __tablename__ = "bwlAUDITLOGGING"
     id = db.Column(db.Integer, primary_key=True)
     action = db.Column(db.String(255), nullable=False)
-    time = db.Column(db.DateTime, nullable=False)
+    created = db.Column(db.DateTime, default=datetime.now, nullable=False)
     user = db.Column(db.String(255), nullable=False)
 
     def __init__(self, action, time, user):
@@ -62,7 +62,7 @@ class WorkflowLogging(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     workflow_name = db.Column(db.String(255), nullable=False)
     data = db.Column(db.String(255), nullable=False)
-    created = db.Column(db.DateTime, nullable=False)
+    created = db.Column(db.DateTime, default=datetime.now, nullable=False)
 
     def __init__(self, workflow_name, data, created):
         self.workflow_name = workflow_name
@@ -188,27 +188,32 @@ class WfeObject(db.Model):
     __tablename__ = "bwlOBJECT"
     id = db.Column(db.Integer, primary_key=True)
     data = db.Column(db.JSON, nullable=False)
-    extra_data = db.Column(db.JSON, default={"tasks_results": {}})
+    extra_data = db.Column(db.JSON, nullable=False, default={"tasks_results": {},
+                                                               "owner": {},
+                                                               "task_counter": {},
+                                                               "error_msg": "",
+                                                               "last_task_name": "",
+                                                               "latest_object": -1})
     workflow_id = db.Column(db.String(36), db.ForeignKey("bwlWORKFLOW.uuid"), nullable=False)
     version = db.Column(db.Integer(3), default=0, nullable=False)
     parent_id = db.Column(db.Integer, db.ForeignKey("bwlOBJECT.id"), default=None)
     child_objects = db.relationship("WfeObject", remote_side=[parent_id])
-    created = db.Column(db.DateTime, default=datetime.now(), nullable=False)
-    modified = db.Column(db.DateTime, default=datetime.now(), nullable=False)
-    owner = db.Column(db.String(255))
+    created = db.Column(db.DateTime, default=datetime.now, nullable=False)
+    modified = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now, nullable=False)
     status = db.Column(db.String(255), default="", nullable=False)
-    user_id = db.Column(db.String(255), default=0, nullable=False)
-    task_counter = db.Column(db.JSON, default=[0], nullable=False)
-    error_msg = db.Column(db.String(500), default="", nullable=False)
-    last_task_name = db.Column(db.String(60), default="")
+    #user_id = db.Column(db.String(255), default=0, nullable=False)
+    #task_counter = db.Column(db.JSON, default=[0], nullable=False)
+    #error_msg = db.Column(db.String(500), default="", nullable=False)
+    #last_task_name = db.Column(db.String(60), default="")
     data_type = db.Column(db.String(50), default="", nullable=False)
     uri = db.Column(db.String(500), default="")
 
     def __repr__(self):
         repr = "<WfeObject(id = %s, data = %s, workflow_id = %s, " \
-               "version = %s, parent_id = %s, created = %s)" \
+               "version = %s, parent_id = %s, created = %s, extra_data = %s)" \
                % (str(self.id), str(self.data), str(self.workflow_id),
-                  str(self.version), str(self.parent_id), str(self.created))
+                  str(self.version), str(self.parent_id), str(self.created),
+                  str(self.extra_data))
         return repr
 
     def __eq__(self, other):
@@ -248,10 +253,6 @@ class WfeObject(db.Model):
                 "modified": self.modified,
                 "owner": self.owner,
                 "status": self.status,
-                "user_id": self.user_id,
-                "task_counter": self.task_counter,
-                "error_msg": self.error_msg,
-                "last_task_name": self.last_task_name,
                 "data_type": self.data_type,
                 "uri": self.uri}
 
@@ -264,10 +265,6 @@ class WfeObject(db.Model):
         self.modified = state["modified"]  # should we update
         self.owner = state["owner"]        # the modification date??
         self.status = state["status"]
-        self.user_id = state["user_id"]
-        self.task_counter = state["task_counter"]
-        self.error_msg = state["error_msg"]
-        self.last_task_name = state["last_task_name"]
         self.data_type = state["data_type"]
         self.uri = state["uri"]
 
@@ -281,10 +278,6 @@ class WfeObject(db.Model):
         self.modified = datetime.now()
         self.owner = other.owner
         self.status = other.status
-        self.user_id = other.user_id
-        self.task_counter = other.task_counter
-        self.error_msg = other.error_msg
-        self.last_task_name = other.last_task_name
         self.data_type = other.data_type
         self.uri = other.uri
 

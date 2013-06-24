@@ -89,7 +89,6 @@ def runit(wname, data, external_save=None):
                                              id = parsed_dict['id'],
                                              extra_data = parsed_dict['extra_data'],
                                              task_counter = parsed_dict['task_counter'],
-                                             user_id = parsed_dict['user_id'],
                                              extra_object_class=external_save,
                                              data_type = parsed_dict['data_type'],
                                              uri = parsed_dict['uri']))
@@ -191,8 +190,7 @@ def parseDictionary(d, wfe_id=None):
         user_id = d['user_id']
     except:
         user_id = 0
-    
-    print d['data']
+
     try:
         if d['data_type'] == 'auto':
             data_type = BibWorkflowObject.determineDataType(d['data'])
@@ -200,8 +198,6 @@ def parseDictionary(d, wfe_id=None):
             data_type = d['data_type']
     except:
         data_type = None
-        
-    print "data type: %s" % data_type
     
     try:
         uri = d['uri']

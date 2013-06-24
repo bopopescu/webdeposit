@@ -111,13 +111,14 @@ def run_by_oid(oid, start_point="beginning", task_queue=USE_TASK_QUEUE, external
         # always choose initial object
         if wf_object.parent_id is not None:
             oid = wf_object.parent_id
+
     if start_point == "continue":
-        restart_point = cPickle.loads(wf_object.task_counter)
+        restart_point = wf_object.extra_data["task_counter"]
     if start_point == "next":
-        restart_point = cPickle.loads(wf_object.task_counter)
+        restart_point = wf_object.extra_data["task_counter"]
         restart_point[-1] += 1
     if start_point == "prev":
-        restart_point = cPickle.loads(wf_object.task_counter)
+        restart_point = wf_object.extra_data["task_counter"]
         restart_point[-1] -= 1
 
     if task_queue:

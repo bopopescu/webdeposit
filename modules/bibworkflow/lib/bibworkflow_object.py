@@ -32,7 +32,7 @@ class BibWorkflowObject(object):
 
     def __init__(self, data=None, workflow_id=None,
                  version=CFG_OBJECT_VERSION.INITIAL, parent_id=None,
-                 id=None, extra_data=None, task_counter=[0], user_id=0, 
+                 id=None, extra_data=None, task_counter=[0],
                  extra_object_class=None, data_type=None, uri=None):
         self.extra_object_class = extra_object_class
         self.status = None
@@ -44,10 +44,10 @@ class BibWorkflowObject(object):
             else:
                 self.db_obj = WfeObject(data=data, workflow_id=workflow_id,
                                         version=version, parent_id=parent_id,
-                                        task_counter=task_counter,
-                                        user_id=user_id, data_type=data_type, 
+                                        data_type=data_type, 
                                         uri=uri)
                 self._create_db_obj()
+                self.extra_data['task_counter'] = str(task_counter)
         self.add_log()
 
     def add_log(self):
@@ -107,8 +107,6 @@ class BibWorkflowObject(object):
                         workflow_id=workflow_id,
                         version=version,
                         parent_id=parent_id,
-                        task_counter=self.db_obj.task_counter,
-                        user_id=self.db_obj.user_id,
                         extra_data=self.db_obj.extra_data,
                         status=self.status,
                         data_type=self.db_obj.data_type)
@@ -123,12 +121,8 @@ class BibWorkflowObject(object):
 
     def save(self, version=None, task_counter=[0], workflow_id=None):
         """
-        .update() should be changed to create new object,
-        this will make function more constant and avoid code replication
-         => save_object() could return than
-        return int(o.id)
         """
-        self.db_obj.task_counter = task_counter
+        self.db_obj.extra_data["task_counter"] = task_counter
         self.db_obj.modified = datetime.now()
 
         if not workflow_id:
@@ -139,14 +133,16 @@ class BibWorkflowObject(object):
             # we save the current state ("error" version)
             if self.db_obj.parent_id is not None:
                 # We are a child, so we update ourselves.
+                ### May need to update parent object to change latest_object
                 self._update_db()
                 return int(self.db_obj.id)
             else:
                 # First time this object has an error/interrupt.
                 # Add new child from this object. (version error)
-                return int(self._create_version_obj(workflow_id,
+                self.add_metadata('latest_object', int(self._create_version_obj(workflow_id,
                                                     CFG_OBJECT_VERSION.HALTED,
-                                                    int(self.db_obj.id)))
+                                                    int(self.db_obj.id))))
+                self._update_db()
 
         elif version == CFG_OBJECT_VERSION.FINAL:
             # This means the object was successfully run
@@ -160,9 +156,10 @@ class BibWorkflowObject(object):
                     parent_id = self.db_obj.parent_id
                 else:
                     parent_id = self.db_obj.id
-                return int(self._create_version_obj(workflow_id,
+                self.add_metadata('latest_object', int(self._create_version_obj(workflow_id,
                                                     CFG_OBJECT_VERSION.FINAL,
-                                                    parent_id))
+                                                    parent_id)))
+                self._update_db()
         else:
             # version == 0
             # First save of the object (original version)
@@ -176,13 +173,14 @@ class BibWorkflowObject(object):
         return self.log
 
     def __repr__(self):
-        return "<%s(id: %s, data: %s, workflow_id: %s, version: %s, parent_id: %s)>" % (
+        return "<%s(id: %s, data: %s, workflow_id: %s, version: %s, parent_id: %s, extra_data: %s)>" % (
             "BibWorkflowObject",
             str(self.db_obj.id),
             str(self.db_obj.data),
             str(self.db_obj.workflow_id),
             str(self.db_obj.version),
-            str(self.db_obj.parent_id)
+            str(self.db_obj.parent_id),
+            str(self.db_obj.extra_data)
         )
 
     def add_task_result(self, task_name, result):

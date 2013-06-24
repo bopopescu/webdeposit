@@ -72,7 +72,7 @@ class dictproperty(object):
             try:
                 self._fset(self._obj, key, value)
             except TypeError:
-                print "can't set item"
+                print "can't set item %s: %s" % (str(key), str(value),)
 
         def __delitem__(self, key):
             try:
