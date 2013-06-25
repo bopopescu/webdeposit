@@ -40,21 +40,21 @@ class worker_celery(object):
                              "worker_celery.log"), 'celery')
         runit(wname, data, external_save=external_save)
 
-    def restart(self, wid, data, restart_point, external_save=None):
+    def restart(self, wid, external_save=None):
         """
         Helper function to get celery task
         decorators to worker_celery
         """
-        return self.celery_restartit.delay(wid, data, restart_point, external_save)
+        return self.celery_restartit.delay(wid, external_save)
 
     @celery.task(name='invenio.bibworkflow.workers.worker_celery.restartit')
-    def celery_restartit(wid, data=None, restart_point="beginning", external_save=None):
+    def celery_restartit(wid, external_save=None):
         """
         Restarts the workflow with Celery
         """
-        restartit(wid, data, restart_point, external_save=external_save)
+        restartit(wid, external_save=external_save)
 
-    def continue(self, oid, restart_point, external_save=None):
+    def continueit(self, oid, restart_point, external_save=None):
         """
         Helper function to get celery task
         decorators to worker_celery

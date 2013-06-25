@@ -15,13 +15,13 @@
 ## along with Invenio; if not, write to the Free Software Foundation, Inc.,
 ## 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-from functools import wraps
 from invenio.bibworkflow_client import run_workflow, continue_execution
 from invenio.bibworkflow_engine import BibWorkflowEngine
 from invenio.bibworkflow_model import BibWorkflowObject, Workflow
 from invenio.bibworkflow_config import CFG_OBJECT_VERSION
 from invenio.errorlib import register_exception
 from invenio.sqlalchemyutils import db
+from invenio.bibworkflow_utils import determineDataType
 
 
 def runit(wname, data, external_save=None):
@@ -57,7 +57,7 @@ def restartit(wid, external_save=None):
     wfe.setCounterInitial(len(data))
     wfe.save()
 
-    obj = prepare_objects(data,wfe)
+    obj = prepare_objects(data, wfe)
 
     try:
         run_workflow(wfe, obj)
@@ -135,10 +135,11 @@ def parseDictionary(d, wfe_id=None):
 
     try:
         if d['data_type'] == 'auto':
-            data_type = BibWorkflowObject.determineDataType(d['data'])
-        elif isinstance(d['data_type'], string):
+            data_type = determineDataType(d['data'])
+        elif isinstance(d['data_type'], str):
             data_type = d['data_type']
     except:
+        print 'could not resolve data type'
         data_type = None
 
     try:
@@ -164,7 +165,7 @@ def prepare_objects(data, workflow_object):
             parsed_dict = parseDictionary(d, workflow_object.uuid)
             if parsed_dict['id']:
                 obj = BibWorkflowObject.query.filter(BibWorkflowObject.id == parsed_dict['id']).first()
-                objects.append(_prepare_objects_helper(obj,workflow_object))
+                objects.append(_prepare_objects_helper(obj, workflow_object))
             else:
                 new_initial = BibWorkflowObject(data=parsed_dict['data'],
                                                 workflow_id=parsed_dict['workflow_id'],
@@ -184,10 +185,9 @@ def prepare_objects(data, workflow_object):
 
     return objects
 
+
 def _prepare_objects_helper(obj, workflow_object):
-    if not obj:
-        pass
-        raise exception
+    assert obj
     if obj.version == CFG_OBJECT_VERSION.INITIAL:
         new_id = obj._create_version_obj(workflow_id=workflow_object.uuid,
                                          version=CFG_OBJECT_VERSION.RUNNING,

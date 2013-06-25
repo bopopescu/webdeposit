@@ -1,5 +1,7 @@
+# -*- coding: utf-8 -*-
+##
 ## This file is part of Invenio.
-## Copyright (C) 2012 CERN.
+## Copyright (C) 2012, 2013 CERN.
 ##
 ## Invenio is free software; you can redistribute it and/or
 ## modify it under the terms of the GNU General Public License as
@@ -8,23 +10,21 @@
 ##
 ## Invenio is distributed in the hope that it will be useful, but
 ## WITHOUT ANY WARRANTY; without even the implied warranty of
-## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
 ## General Public License for more details.
 ##
 ## You should have received a copy of the GNU General Public License
 ## along with Invenio; if not, write to the Free Software Foundation, Inc.,
 ## 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-"""Implements an example of a typical ingestion workflow for MARCXML records"""
+from invenio.bibworkflow_hp_field_widgets import bootstrap_accept, \
+    bootstrap_reject
+from wtforms import SubmitField, Form
+__all__ = ['approval_widget']
 
 
-from invenio.bibworkflow.tasks.marcxml_tasks import match_record, \
-    approve_record
-from invenio.bibworkflow_workflow_definition import WorkflowDefinition
+class approval_widget(Form):
+    reject = SubmitField(label='Reject', widget=bootstrap_reject)
+    accept = SubmitField(label='Accept', widget=bootstrap_accept)
 
-
-class marcxml_workflow(WorkflowDefinition):
-    def __init__(self):
-        super(marcxml_workflow, self).__init__()
-        self.definition = [approve_record,
-                           match_record]
+widget = approval_widget()

@@ -15,33 +15,26 @@
 ## along with Invenio; if not, write to the Free Software Foundation, Inc.,
 ## 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-SUBDIRS = workers
 
-pylibdir = $(libdir)/python/invenio
-
-jsdir=$(localstatedir)/www/js
-
-js_DATA = bibworkflow_workflows.js \
-          bibworkflow_index.js \
-          bibworkflow_entry_details.js
-
-pylib_DATA = bibworkflow_admin_blueprint.py \
-			 bibworkflow_hp_blueprint.py \
-			 bibworkflow_api.py \
-			 bibworkflow_client.py \
-			 bibworkflow_config.py \
-			 bibworkflow_engine.py \
-			 bibworkflow_hp_container.py \
-			 bibworkflow_hp_field_widgets.py \
-			 bibworkflow_hp_load_widgets.py \
-			 bibworkflow_model.py \
-			 bibworkflow_unit_tests.py \
-			 bibworkflow_utils.py \
-			 bibworkflow_worker_engine.py \
-			 bibworkflow_workflow_definition.py \ 
-			 bibworkflow_containers.py
-
-EXTRA_DIST = $(pylib_DATA) \
-			 $(js_DATA)
-
-CLEANFILES = *~ *.tmp *.pyc
+class HoldingPenContainer():
+    """
+    Class containing three HPItems of a single record plus metadata for
+    the record
+    """
+    def __init__(self, initial, error=None, final=None, owner="", description="",
+                 ISBN=0, invenio_id=0, publisher="", category="", version=0):
+        self.id = initial.id
+        self.initial = initial
+        self.error = error
+        self.final = final
+        if self.final:
+            self.current = self.final
+        elif self.error:
+            self.current = self.error
+        self.owner = owner
+        self.description = description
+        self.ISBN = ISBN
+        self.invenio_id = invenio_id
+        self.publisher = publisher
+        self.category = category
+        self.version = version

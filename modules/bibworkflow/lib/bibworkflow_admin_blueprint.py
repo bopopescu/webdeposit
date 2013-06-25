@@ -63,7 +63,6 @@ def entry_details(entry_id):
     Dispalys entry details.
     """
     wfe_object = BibWorkflowObject.query.filter(BibWorkflowObject.id == entry_id).first()
-    
     ### Old logging
     #try:
     #    #object_210_w_18
@@ -75,7 +74,7 @@ def entry_details(entry_id):
     #   logtext = ""
 
     return render_template('bibworkflow_entry_details.html',
-                           entry=wfe_object, log=logtext,
+                           entry=wfe_object, log="",
                            data_preview=_entry_data_preview(wfe_object.data, 'hd'),
                            workflow_func=getWorkflowDefinition(wfe_object.bwlWORKFLOW.name))
 
@@ -96,7 +95,7 @@ def workflow_details(workflow_id):
 
     return render_template('bibworkflow_workflow_details.html',
                            workflow_metadata=w_metadata,
-                           log=logtext,
+                           log="",
                            workflow_func=getWorkflowDefinition(w_metadata.name))
 
 
@@ -118,8 +117,12 @@ def workflows():
 @blueprint.invenio_wash_urlargd({'workflow_name': (unicode, "")})
 def run_workflow(workflow_name, data={"data":10}):
     try:
+        # data = open('input2.xml').read()
         data = [{'data': data}]
+        print data
         external_save = None
+        print workflow_name
+        print 'Ready to run workflow'
         run(workflow_name, data, external_save=external_save)
     except:
         traceback.print_exc()

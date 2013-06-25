@@ -23,7 +23,6 @@ import os
 from pprint import pformat
 from invenio.config import CFG_BIBWORKFLOW_WORKER
 from invenio.config import CFG_PYLIBDIR, CFG_LOGDIR
-import cPickle
 from invenio.pluginutils import PluginContainer
 
 

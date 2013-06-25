@@ -285,7 +285,7 @@ BibWorkflowObject
         Data: %s
         Extra data: %s
 -------------------------------
-""" % (# str(self.extra_object_class),
+""" % (  # str(self.extra_object_class),
        str(self.status),
        str(self.id),
        str(self.parent_id),
@@ -373,8 +373,9 @@ BibWorkflowObject
         if not workflow_id:
             workflow_id = self.workflow_id
 
-        self.version = version
-        self._update_db()
+        if version:
+            self.version = version
+            self._update_db()
 
     def save_to_file(self, directory=CFG_TMPSHAREDDIR,
                      prefix="bibworkflow_object_data_", suffix=".obj"):
@@ -432,3 +433,18 @@ BibWorkflowObject
 
 __all__ = ['Workflow', 'BibWorkflowObject', 'WorkflowLogging',
            'AuditLogging', 'TaskLogging']
+
+
+class HpObject(db.Model):
+    """
+    Wrapper class for WfeObjects.
+    """
+    __tablename__ = "bhpOBJECTS"
+    id = db.Column(db.Integer, primary_key=True)
+    object_id = db.Column(db.Integer, db.ForeignKey("bwlOBJECT.id"), default=None)
+    key = db.Column(db.String(255), default="empty", nullable=False)
+    value = db.Column(db.String(255), default=0)
+
+    def __repr__(self):
+        return "<HpObject(id = %s, object_id = %s, key = %s, value = %s)" \
+               % (str(self.id), str(self.object_id), self.key, self.value)
