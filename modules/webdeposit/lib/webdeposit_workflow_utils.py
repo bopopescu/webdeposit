@@ -27,7 +27,7 @@ from invenio.bibworkflow_model import Workflow
 from invenio.bibfield_jsonreader import JsonReader
 from tempfile import mkstemp
 from invenio.bibtask import task_low_level_submission
-from invenio.config import CFG_TMPSHAREDDIR
+from invenio.config import CFG_TMPSHAREDDIR, CFG_PREFIX, CFG_BIBSCHED_PROCESS_USER
 from invenio.dbquery import run_sql
 
 """
@@ -151,3 +151,23 @@ def create_record_from_marc():
                                                         'webdeposit', '-r',
                                                         tmp_file_name)
     return create
+
+
+def bibindex():
+    """ Runs BibIndex """
+    def bibindex_task(obj, eng):
+        cmd = "%s/bin/bibindex -u admin" % CFG_PREFIX
+        if os.system(cmd):
+            eng.log.error("BibIndex task failed.")
+
+    return bibindex_task
+
+
+def webcoll():
+    """ Runs WebColl """
+    def webcoll_task(obj, eng):
+        cmd = "%s/bin/webcoll -u admin" % CFG_PREFIX
+        if os.system(cmd):
+            eng.log.error("WebColl task failed.")
+
+    return webcoll_task
