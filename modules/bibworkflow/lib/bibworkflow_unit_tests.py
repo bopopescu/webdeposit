@@ -71,9 +71,8 @@ distances from it.
         """ Clean up created objects """
         from invenio.bibworkflow_model import BibWorkflowObject, Workflow
         for wid in self.workflow_ids:
-            pass
-            #BibWorkflowObject.query.filter(BibWorkflowObject.workflow_id == wid).delete()
-            #Workflow.query.filter(Workflow.uuid == wid).delete()
+            BibWorkflowObject.query.filter(BibWorkflowObject.workflow_id == wid).delete()
+            Workflow.query.filter(Workflow.uuid == wid).delete()
         db.session.commit()
 
     def test_workflow_basic_run(self):
@@ -356,6 +355,30 @@ distances from it.
         self.assertEqual(restarted_objects[0].version, init_objects[1].version)
         self.assertEqual(restarted_objects[0].parent_id, init_objects[0].id)
         self.assertEqual(restarted_objects[0].data, init_objects[1].data)
+
+    def test_simplified_data(self):
+        """Tests running workflow with simplified data."""
+        from invenio.bibworkflow_model import BibWorkflowObject
+
+        self.test_data = 20
+        initial_data = self.test_data
+        final_data = 41
+
+        workflow = run(wname="simplified_data_test_workflow",
+                       data=[self.test_data],
+                       task_queue=False)
+
+        # Keep id for cleanup after
+        self.workflow_ids.append(workflow.uuid)
+
+        # Get parent object of the workflow we just ran
+        # NOTE: ignore PEP8 here for None
+        objects = BibWorkflowObject.query.filter(BibWorkflowObject.workflow_id == workflow.uuid,
+                                                 BibWorkflowObject.parent_id == None)
+        all_objects = BibWorkflowObject.query.filter(BibWorkflowObject.workflow_id == workflow.uuid)
+        self.assertEqual(all_objects.count(), 2)
+        self._check_workflow_execution(workflow, objects,
+                                       initial_data, final_data)
 
     def _check_workflow_execution(self, workflow, objects,
                                   initial_data, final_data):

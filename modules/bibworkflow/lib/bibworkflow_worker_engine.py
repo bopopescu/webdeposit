@@ -92,6 +92,12 @@ def continueit(oid, restart_point="next_task", external_save=None):
 
 
 def parseDictionary(d, wfe_id=None):
+    if d is not dict:
+        return {'data': d, 'workflow_id': wfe_id, 'version': CFG_OBJECT_VERSION.INITIAL,
+            'parent_id': None, 'id': None, 'extra_data': None,
+            'task_counter': [0], 'user_id': 0,
+            'data_type': str(type(d)), 'uri': None}
+    
     try:
         data = d['data']
     except:

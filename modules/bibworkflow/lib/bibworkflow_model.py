@@ -17,6 +17,7 @@
 
 import os
 import tempfile
+import json
 
 from datetime import datetime
 from sqlalchemy import desc
@@ -251,7 +252,7 @@ class BibWorkflowObject(db.Model):
     # db table definition
     __tablename__ = "bwlOBJECT"
     id = db.Column(db.Integer, primary_key=True)
-    data = db.Column(db.JSON, nullable=False)
+    _data = db.Column(db.JSON, nullable=False)
     extra_data = db.Column(db.JSON,
                            nullable=False, default={"tasks_results": {},
                                                     "owner": {},
@@ -263,8 +264,8 @@ class BibWorkflowObject(db.Model):
                             db.ForeignKey("bwlWORKFLOW.uuid"), nullable=False)
     version = db.Column(db.Integer(3),
                         default=CFG_OBJECT_VERSION.RUNNING, nullable=False)
-    parent_id = db.Column(db.Integer,
-                          db.ForeignKey("bwlOBJECT.id"), default=None)
+    parent_id = db.Column(db.Integer, db.ForeignKey("bwlOBJECT.id"),
+                          default=None)
     child_objects = db.relationship("BibWorkflowObject",
                                     remote_side=[parent_id])
     created = db.Column(db.DateTime, default=datetime.now, nullable=False)
@@ -275,9 +276,18 @@ class BibWorkflowObject(db.Model):
                           nullable=False)
     uri = db.Column(db.String(500), default="")
     child_logs = db.relationship("BibWorkflowObjectLogging")
+    _old_data = None
 
     def get_data_by_id(self, id):
         return self.query.filter(BibWorkflowObject.id == id).first()
+
+    @property
+    def data(self):
+        return self._data['data']
+
+    @data.setter
+    def data(self, data):
+        self._data = {'data': data}
 
     def log_info(self, message, error_msg=""):
         log_obj = BibWorkflowObjectLogging(bibworkflowobject_id=self.id,
@@ -411,6 +421,10 @@ BibWorkflowObject
         return obj.id
 
     def _update_db(self):
+        new_data = hash(json.dumps(self._data))
+        if self._old_data != new_data:
+            self._old_data = new_data
+            self._data.changed()
         db.session.add(self)
         db.session.commit()
         self.log_info("Object saved")
@@ -488,6 +502,16 @@ BibWorkflowObject
         self.status = other.status
         self.data_type = other.data_type
         self.uri = other.uri
+
+
+def load_a(*args, **kwargs):
+    args[0]._old_data = json.dumps(args[0]._data)
+    pass
+
+from sqlalchemy import event
+from sqlalchemy.orm.events import InstanceEvents
+event.listen(BibWorkflowObject, 'load', load_a)
+
 
 __all__ = ['Workflow', 'BibWorkflowObject', 'WorkflowLogging',
            'AuditLogging', 'TaskLogging', 'BibWorkflowObjectLogging']
