@@ -19,13 +19,10 @@
 
 from werkzeug.utils import import_string
 from invenio.cache import cache
-from invenio.sqlalchemyutils import db
 from invenio.webuser_flask import current_user
-from invenio.webdeposit_model import WebDepositDraft
 from invenio.webdeposit_cook_json_utils import cook_to_recjson
 from invenio.bibworkflow_model import Workflow
 from invenio.webinterface_handler_flask_utils import _
-from invenio.webdeposit_cook_json_utils import cook_to_recjson
 
 
 class WebDepositConfiguration(object):
@@ -53,13 +50,15 @@ class WebDepositConfiguration(object):
     def _runtime_vars_init(self):
         """ Initializes user_id, deposition type, uuid and form_type
         """
+        from invenio.webdeposit_utils import draft_getter
 
         self.user_id = current_user.get_id()
 
         if self.deposition_type is None:
 
-            self.runtime_deposition_type = cache.get(str(self.user_id) +
-                                                     ":current_deposition_type")
+            self.runtime_deposition_type = \
+                cache.get(str(self.user_id) +
+                          ":current_deposition_type")
         else:
             self.runtime_deposition_type = None
 
@@ -67,15 +66,10 @@ class WebDepositConfiguration(object):
         self.uuid = cache.get(str(self.user_id) + ":current_uuid")
 
         if self.uuid is not None and self.form_type is None:
-            webdeposit_draft_query = \
-                db.session.query(WebDepositDraft).\
-                join(Workflow).\
-                filter(Workflow.user_id == self.user_id,
-                       WebDepositDraft.uuid == self.uuid)
-            # get the draft with the max step
-            webdeposit_draft = max(webdeposit_draft_query.all(), key=lambda w: w.step)
-
-            self.runtime_form_type = webdeposit_draft.form_type
+            draft = Workflow.get_extra_data(user_id=self.user_id,
+                                            uuid=self.uuid,
+                                            getter=draft_getter())
+            self.runtime_form_type = draft['form_type']
         else:
             self.runtime_form_type = None
 
@@ -109,7 +103,6 @@ class WebDepositConfiguration(object):
 
         return None
 
-
     def get_form_title(self, form_type=None):
         """ Returns the title of the form
 
@@ -142,9 +135,9 @@ class WebDepositConfiguration(object):
         field_type = field_type or self.get_field_type()
 
         label = self._parse_config('label',
-                                  deposition_type=deposition_type,
-                                  form_type=form_type,
-                                  field_type=field_type)
+                                   deposition_type=deposition_type,
+                                   form_type=form_type,
+                                   field_type=field_type)
 
         if label is None:
             return None
@@ -164,9 +157,9 @@ class WebDepositConfiguration(object):
         field_type = field_type or self.get_field_type()
 
         widget = self._parse_config('widget',
-                                   deposition_type=deposition_type,
-                                   form_type=form_type,
-                                   field_type=field_type)
+                                    deposition_type=deposition_type,
+                                    form_type=form_type,
+                                    field_type=field_type)
 
         if widget is None:
             return None
@@ -226,14 +219,13 @@ class WebDepositConfiguration(object):
         if recjson_key is not None:
             return cook_to_recjson(recjson_key)
 
-
     def get_template(self, form_type=None):
         deposition_type = self.get_deposition_type()
         form_type = self.get_form_type() or form_type
 
         template = self._parse_config('template',
-                                       deposition_type=deposition_type,
-                                       form_type=form_type)
+                                      deposition_type=deposition_type,
+                                      form_type=form_type)
 
         if template is None:
             return None

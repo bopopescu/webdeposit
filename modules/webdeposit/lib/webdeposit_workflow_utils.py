@@ -19,15 +19,14 @@
 
 import os
 import time
-from sqlalchemy import func
+from datetime import datetime
 from invenio.sqlalchemyutils import db
 from invenio.webdeposit_config_utils import WebDepositConfiguration
-from invenio.webdeposit_model import WebDepositDraft
 from invenio.bibworkflow_model import Workflow
 from invenio.bibfield_jsonreader import JsonReader
 from tempfile import mkstemp
 from invenio.bibtask import task_low_level_submission
-from invenio.config import CFG_TMPSHAREDDIR, CFG_PREFIX, CFG_BIBSCHED_PROCESS_USER
+from invenio.config import CFG_TMPSHAREDDIR, CFG_PREFIX
 from invenio.dbquery import run_sql
 
 """
@@ -54,19 +53,25 @@ def authorize_user(user_id=None):
 
 def render_form(form):
     def render(obj, eng):
+        from invenio.webdeposit_utils import get_last_step, CFG_DRAFT_STATUS, \
+            decode_dict_from_unicode, add_draft
+
         uuid = eng.uuid
-        # TODO: get the current step from the object
-        step = max(obj.db_obj.task_counter)  # data['step']
+        user_id = obj.data['user_id']
+        #TODO: create out of the getCurrTaskId() which is a list
+        # an incremental key that represents also steps in complex workflows.
+        step = get_last_step(eng.getCurrTaskId())
         form_type = form.__name__
-        from invenio.webdeposit_utils import CFG_DRAFT_STATUS
-        webdeposit_draft = WebDepositDraft(uuid=uuid,
-                                           form_type=form_type,
-                                           form_values={},
-                                           step=step,
-                                           status=CFG_DRAFT_STATUS['unfinished'],
-                                           timestamp=func.current_timestamp())
-        db.session.add(webdeposit_draft)
-        db.session.commit()
+
+        draft = dict(form_type=form_type,
+                     form_values={},
+                     status=CFG_DRAFT_STATUS['unfinished'],
+                     timestamp=str(datetime.now()),
+                     step=step)
+
+        Workflow.set_extra_data(user_id=user_id, uuid=uuid,
+                                setter=add_draft(draft))
+
     return render
 
 
@@ -123,8 +128,9 @@ def export_marc_from_json():
 
         workflow = Workflow.query.filter(Workflow.uuid == uuid).one()
         workflow.extra_data['recid'] = obj.data['recid']
-        Workflow.query.filter(Workflow.uuid == uuid).update({'extra_data': workflow.extra_data})
-
+        Workflow.query.\
+            filter(Workflow.uuid == uuid).\
+            update({'extra_data': workflow.extra_data})
 
         marc = json_reader.legacy_export_as_marc()
         obj.data['marc'] = marc

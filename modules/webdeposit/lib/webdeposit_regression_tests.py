@@ -24,20 +24,14 @@ class TestWebDepositUtils(InvenioTestCase):
 
     def clear_tables(self):
         from invenio.bibworkflow_model import Workflow, WfeObject
-        from invenio.webdeposit_model import WebDepositDraft
         from invenio.sqlalchemyutils import db
 
         Workflow.query.delete()
         WfeObject.query.delete()
-        WebDepositDraft.query.delete()
         db.session.commit()
 
     def setUp(self):
-        from invenio.sqlalchemyutils import db
-
         self.clear_tables()
-        # db.session.execute("TRUNCATE schTASK")
-        # db.session.commit()
         super(TestWebDepositUtils, self).setUp()
 
     def tearDown(self):
@@ -105,11 +99,10 @@ class TestWebDepositUtils(InvenioTestCase):
         from invenio.webdeposit_load_deposition_types import \
             deposition_metadata
         from invenio.webdeposit_load_forms import forms
-        from invenio.webdeposit_model import WebDepositDraft
         from invenio.webdeposit_workflow import DepositionWorkflow
         from invenio.webdeposit_utils import get_current_form, get_form, \
-            get_form_status, CFG_DRAFT_STATUS
-        from invenio.sqlalchemyutils import db
+            get_form_status, set_form_status, CFG_DRAFT_STATUS
+        from invenio.bibworkflow_model import Workflow
         from invenio.webdeposit_workflow_utils import render_form, \
             wait_for_submission
         from invenio.cache import cache
@@ -136,8 +129,9 @@ class TestWebDepositUtils(InvenioTestCase):
         deposition_workflow.run()
 
         # There is only one form in the db
-        drafts = db.session.query(WebDepositDraft)
-        assert len(drafts.all()) == 1
+        workflows = Workflow.get(module_name='webdeposit')
+        assert len(workflows.all()) == 1
+        assert len(workflows[0].extra_data['drafts']) == 1
 
         # Test that guest user doesn't have access to the form
         uuid, form = get_current_form(0, deposition_type='TestWorkflow',
@@ -168,9 +162,7 @@ class TestWebDepositUtils(InvenioTestCase):
                                       step=2)
         assert form_status is None
 
-        db.session.query(WebDepositDraft).\
-            update({'status': CFG_DRAFT_STATUS['finished']})
-
+        set_form_status(1, uuid, CFG_DRAFT_STATUS['finished'])
         form_status = get_form_status(1, deposition_workflow.get_uuid())
         assert form_status == CFG_DRAFT_STATUS['finished']
 
@@ -218,14 +210,15 @@ class TestWebDepositUtils(InvenioTestCase):
         import os
         from wtforms import TextField, TextAreaField
         from sqlalchemy import func
+        from datetime import datetime
+        from invenio.bibworkflow_model import Workflow
         from invenio.sqlalchemyutils import db
         from invenio.webdeposit_load_deposition_types import \
             deposition_metadata
         from invenio.bibworkflow_config import CFG_WORKFLOW_STATUS
-        from invenio.webdeposit_model import WebDepositDraft
         from invenio.bibsched_model import SchTASK
         from invenio.webdeposit_utils import get_current_form, \
-            create_workflow, set_form_status, CFG_DRAFT_STATUS
+            create_workflow, set_form_status, CFG_DRAFT_STATUS, draft_setter
         from invenio.webuser_flask import login_user
         from invenio.webdeposit_workflow_utils import \
             create_record_from_marc
@@ -259,24 +252,27 @@ class TestWebDepositUtils(InvenioTestCase):
 
             # Run the workflow
             deposition.run()
+
             # Create form's json based on the field name
             form = get_current_form(1, deposition_type, uuid)[1]
             webdeposit_json = {}
             value_inserted = False
+
             for field in form:
                 if isinstance(field, TextField) or \
                    isinstance(field, TextAreaField):
                     webdeposit_json[field.name] = "test value"
                     value_inserted = True
-            webdeposit_draft = \
-                WebDepositDraft(uuid=uuid,
-                                form_type=form.__class__.__name__,
-                                form_values=webdeposit_json,
-                                step=0,  # dummy step
-                                status=CFG_DRAFT_STATUS['finished'],
-                                timestamp=func.current_timestamp())
-            db.session.add(webdeposit_draft)
-            db.session.commit()
+
+            draft = dict(form_type=form.__class__.__name__,
+                         form_values=webdeposit_json,
+                         step=0,  # dummy step
+                         status=CFG_DRAFT_STATUS['finished'],
+                         timestamp=str(datetime.now()))
+
+            # Add a draft for the first step
+            Workflow.set_extra_data(user_id=1, uuid=uuid,
+                                    key='drafts', value={0: draft})
 
             workflow_status = CFG_WORKFLOW_STATUS.RUNNING
             while workflow_status != CFG_WORKFLOW_STATUS.FINISHED:
