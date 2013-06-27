@@ -21,6 +21,7 @@ from invenio.xmlDict import XmlDictConfig, ElementTree
 import urllib2
 from werkzeug.contrib.cache import RedisCache
 from invenio.cache import cache
+from xml.etree.ElementTree import ParseError
 
 
 class SherpaRomeoSearch(object):
@@ -140,11 +141,16 @@ class SherpaRomeoXMLParser(object):
             except urllib2.HTTPError:
                 self.error = True
                 return
-            root = ElementTree.XML(self.data)
+            try:
+                root = ElementTree.XML(self.data)
+            except ParseError:
+                self.error = True
+                return
             self.xml = XmlDictConfig(root)
             outcome = self.xml['header']['outcome']
             if outcome != 'failed' and outcome != 'notFound':
-                cache.set(self.search_type + ":" + self.query.lower(), self.xml)
+                cache.set(self.search_type + ":" + self.query.lower(), self.xml,
+                        999999999999)
         else:
             self.xml = cached_xml
             #self.data = cached_xml
@@ -169,7 +175,7 @@ class SherpaRomeoXMLParser(object):
         if self.xml['header']['outcome'] == 'singleJournal' \
             or self.xml['header']['outcome'] == 'uniqueZetoc':
             journal = self.xml['journals']['journal']
-            cache.set("journal:" + journal['jtitle'].lower(), journal)
+            cache.set("journal:" + journal['jtitle'].lower(), journal, 999999999999)
 
             if self.xml['header']['outcome'] != 'uniqueZetoc':
                 # if the publisher has been indexed by RoMEO
@@ -177,18 +183,19 @@ class SherpaRomeoXMLParser(object):
 
                 # Associate a Journal with a Publisher key in cache
                 cache.set("journal-publisher:" + journal['jtitle'].lower(),
-                                  "publisher:" + publisher['name'].lower())
+                                  "publisher:" + publisher['name'].lower(), 999999999999)
         elif self.xml['journals'] is not None:
             for journal in self.xml['journals']['journal']:
-                cache.set("journal:" + journal['jtitle'].lower(), journal)
+                cache.set("journal:" + journal['jtitle'].lower(), journal, 999999999999)
 
         if self.xml['header']['numhits'] == '1' \
             and self.xml['header']['outcome'] != 'uniqueZetoc':
             publisher = self.xml['publishers']['publisher']
-            cache.set("publisher:" + publisher['name'].lower(), publisher)
+            cache.set("publisher:" + publisher['name'].lower(), publisher, 999999999999)
         elif self.xml['publishers'] is not None:
             for publisher in self.xml['publishers']['publisher']:
-                cache.set("publisher:" + publisher['name'].lower(), publisher)
+                cache.set("publisher:" + publisher['name'].lower(), publisher,
+                        None)
 
     def set_single_item(self, journal=None, publisher=None):
         """
@@ -210,7 +217,7 @@ class SherpaRomeoXMLParser(object):
                 # Associate a Journal with a Publisher key in cache
                 self.xml['header']['outcome'] = 'singleJournal'
                 cache.set("journal-publisher:" + journal['jtitle'].lower(),
-                                  "publisher:" + publisher['name'].lower())
+                                  "publisher:" + publisher['name'].lower(), 999999999999)
         elif publisher is not None:
             self.xml['header']['outcome'] = 'publisherFound'
             self.xml['header']['numhits'] = '1'
