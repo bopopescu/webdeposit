@@ -27,6 +27,7 @@ from invenio.config import CFG_PYLIBDIR
 from invenio.errorlib import register_exception
 from invenio.bibworkflow_hp_container import HoldingPenContainer
 from invenio.sqlalchemyutils import db
+from flask import jsonify
 
 
 REGEXP_RECORD = re.compile("<record.*?>(.*?)</record>", re.DOTALL)
@@ -191,3 +192,57 @@ def create_hp_containers(iSortCol_0=None, sSortDir_0=None):
                              cPickle.dumps(HPcontainer))
 
     return hpcontainers
+
+
+def redis_create_search_entry(bwobject):
+    redis_server = set_up_redis()
+    from invenio.bibworkflow_config import CFG_EXTRA_DATA_KEY
+
+    #creates database entries to not loose key value pairs in redis
+    for key, value in bwobject.extra_data["redis_search"].iteritems():
+        redis_server.sadd("holdingpen_sort", str(key))
+        redis_server.sadd("holdingpen_sort:%s" % (str(key),), str(value))
+        redis_server.sadd("holdingpen_sort:%s:%s" %(str(key), str(value),),
+                          bwobject.id)
+
+    redis_server.sadd("holdingpen_sort", "owner")
+    redis_server.sadd("holdingpen_sort:owner", bwobject.extra_data['owner'])
+    redis_server.sadd("holdingpen_sort:owner:%s" % (bwobject.extra_data['owner'],),
+                      bwobject.id)
+    redis_server.sadd("holdingpen_sort:last_task_name:%s" % (bwobject.extra_data['last_task_name'],),
+                      bwobject.id)
+
+
+def filter_holdingpen_results(key, *args):
+    """Function filters holdingpen entries by given key: value pair. 
+    It returns list of IDs."""
+    redis_server = set_up_redis()
+    new_args = []
+    for a in args:
+        new_args.append("holdingpen_sort:"+a)
+    return redis_server.sinter("holdingpen_sort:"+key, *new_args)
+
+
+def get_redis_keys(key=None):
+    redis_server = set_up_redis()
+    if key:
+        return list(redis_server.smembers("holdingpen_sort:%s" % (str(key),)))
+    else:
+        return list(redis_server.smembers("holdingpen_sort"))
+
+
+def get_redis_values(key):
+    redis_server = set_up_redis()
+    return redis_server.smembers("holdingpen_sort:%s" % (str(key),))
+
+
+def set_up_redis(url="localhost"):
+    """
+    Sets up the redis server for the saving of the HPContainers
+
+    @type url: string
+    @param url: address to setup the Redis server
+    @return: Redis server object.
+    """
+    redis_server = redis.Redis(url)
+    return redis_server

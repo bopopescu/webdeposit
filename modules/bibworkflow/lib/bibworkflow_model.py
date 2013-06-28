@@ -30,7 +30,7 @@ from invenio.sqlalchemyutils import db
 from invenio.bibworkflow_config import CFG_OBJECT_VERSION,\
     CFG_LOG_TYPE
 from invenio.config import CFG_TMPSHAREDDIR
-from invenio.bibworkflow_utils import determineDataType
+from invenio.bibworkflow_utils import determineDataType, redis_create_search_entry
 
 
 class WorkflowLogging(db.Model):
@@ -158,7 +158,7 @@ class Workflow(db.Model):
         """ Returns the most recently modified workflow. """
 
         most_recent = cls.get(*criteria, **filters).\
-            order_by(desc(Workflow.modified)).first()
+                              order_by(desc(Workflow.modified)).first()
         if most_recent is None:
             raise NoResultFound
         else:
@@ -228,7 +228,8 @@ class BibWorkflowObject(db.Model):
                                                     "error_msg": "",
                                                     "last_task_name": "",
                                                     "latest_object": -1,
-                                                    "widget": None})
+                                                    "widget": None,
+                                                    "redis_search": {}})
     id_workflow = db.Column(db.String(36),
                             db.ForeignKey("bwlWORKFLOW.uuid"), nullable=False)
     version = db.Column(db.Integer(3),
@@ -416,6 +417,8 @@ BibWorkflowObject
 
         if version:
             self.version = version
+            if version in (CFG_OBJECT_VERSION.FINAL, CFG_OBJECT_VERSION.HALTED):
+                redis_create_search_entry(self)
             self._update_db()
 
     def save_to_file(self, directory=CFG_TMPSHAREDDIR,

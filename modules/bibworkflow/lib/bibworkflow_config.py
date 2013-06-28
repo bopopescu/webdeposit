@@ -30,3 +30,4 @@ CFG_OBJECT_STATUS = enum(ERROR="ERROR - Something went wrong!",
                                   "for this object"
                          )
 CFG_LOG_TYPE = enum(INFO=0, ERROR=1, DEBUG=2)
+CFG_EXTRA_DATA_KEY = enum(PUBLISHER=0, SOURCE=1, OWNER=2, CATEGORY=3, LAST_TASK_NAME=4)

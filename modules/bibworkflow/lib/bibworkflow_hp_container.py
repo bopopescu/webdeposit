@@ -17,7 +17,7 @@
 ## 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 
-class HoldingPenContainer():
+class HoldingPenContainer(object):
     """
     Class containing three HPItems of a single record plus metadata for
     the record
