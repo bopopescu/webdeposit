@@ -31,7 +31,7 @@ class TestWorkflowStart(FlaskSQLAlchemyTest):
 
     def setUp(self):
         self.test_data = {}
-        self.workflow_ids = []
+        self.id_workflows = []
         self.recxml = """<?xml version="1.0" encoding="UTF-8"?>
 <OAI-PMH xmlns="http://www.openarchives.org/OAI/2.0/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.openarchives.org/OAI/2.0/ http://www.openarchives.org/OAI/2.0/OAI-PMH.xsd">
 <responseDate>2013-04-03T13:56:49Z</responseDate>
@@ -70,8 +70,8 @@ distances from it.
     def tearDown(self):
         """ Clean up created objects """
         from invenio.bibworkflow_model import BibWorkflowObject, Workflow
-        for wid in self.workflow_ids:
-            BibWorkflowObject.query.filter(BibWorkflowObject.workflow_id == wid).delete()
+        for wid in self.id_workflows:
+            BibWorkflowObject.query.filter(BibWorkflowObject.id_workflow == wid).delete()
             Workflow.query.filter(Workflow.uuid == wid).delete()
         db.session.commit()
 
@@ -88,13 +88,13 @@ distances from it.
                        task_queue=False)
 
         # Keep id for cleanup after
-        self.workflow_ids.append(workflow.uuid)
+        self.id_workflows.append(workflow.uuid)
 
         # Get parent object of the workflow we just ran
         # NOTE: ignore PEP8 here for None
-        objects = BibWorkflowObject.query.filter(BibWorkflowObject.workflow_id == workflow.uuid,
-                                                 BibWorkflowObject.parent_id == None)
-        all_objects = BibWorkflowObject.query.filter(BibWorkflowObject.workflow_id == workflow.uuid)
+        objects = BibWorkflowObject.query.filter(BibWorkflowObject.id_workflow == workflow.uuid,
+                                                 BibWorkflowObject.id_parent == None)
+        all_objects = BibWorkflowObject.query.filter(BibWorkflowObject.id_workflow == workflow.uuid)
         self.assertEqual(all_objects.count(), 2)
         self._check_workflow_execution(workflow, objects,
                                        initial_data, final_data)
@@ -111,16 +111,16 @@ distances from it.
                        task_queue=False)
 
         # Keep id for cleanup after
-        self.workflow_ids.append(workflow.uuid)
+        self.id_workflows.append(workflow.uuid)
 
         # Get parent objects of the workflow we just ran
         # NOTE: ignore PEP8 here for None
-        objects = BibWorkflowObject.query.filter(BibWorkflowObject.workflow_id == workflow.uuid,
-                                                 BibWorkflowObject.parent_id == None)
+        objects = BibWorkflowObject.query.filter(BibWorkflowObject.id_workflow == workflow.uuid,
+                                                 BibWorkflowObject.id_parent == None)
         # Let's check that we found anything. There should only be three objects
         self.assertEqual(objects.count(), 3)
 
-        all_objects = BibWorkflowObject.query.filter(BibWorkflowObject.workflow_id == workflow.uuid)
+        all_objects = BibWorkflowObject.query.filter(BibWorkflowObject.id_workflow == workflow.uuid)
         self.assertEqual(all_objects.count(), 6)
 
         for obj in objects.all():
@@ -142,14 +142,14 @@ distances from it.
                        task_queue=False)
 
         # Keep id for cleanup after
-        self.workflow_ids.append(workflow.uuid)
+        self.id_workflows.append(workflow.uuid)
 
         # Get parent object of the workflow we just ran
         # NOTE: ignore PEP8 here for None
-        objects = BibWorkflowObject.query.filter(BibWorkflowObject.workflow_id == workflow.uuid,
-                                                 BibWorkflowObject.parent_id == None)
+        objects = BibWorkflowObject.query.filter(BibWorkflowObject.id_workflow == workflow.uuid,
+                                                 BibWorkflowObject.id_parent == None)
 
-        all_objects = BibWorkflowObject.query.filter(BibWorkflowObject.workflow_id == workflow.uuid)
+        all_objects = BibWorkflowObject.query.filter(BibWorkflowObject.id_workflow == workflow.uuid)
         self.assertEqual(all_objects.count(), 2)
 
         self._check_workflow_execution(workflow, objects,
@@ -160,23 +160,23 @@ distances from it.
         from invenio.bibworkflow_model import BibWorkflowObject
         initial_data = {'data': 1}
         obj_init = BibWorkflowObject(data=initial_data,
-                                     workflow_id=123,
+                                     id_workflow=123,
                                      version=CFG_OBJECT_VERSION.INITIAL)
         obj_init._update_db()
         halted_data = {'data': 1}
         obj_halted = BibWorkflowObject(data=halted_data,
-                                       workflow_id=123,
-                                       parent_id=obj_init.id,
+                                       id_workflow=123,
+                                       id_parent=obj_init.id,
                                        version=CFG_OBJECT_VERSION.HALTED)
         obj_halted._update_db()
 
         workflow = run('test_workflow', [{'id': obj_halted.id}], task_queue=False)
 
         final_data = {'data': 2}
-        objects = BibWorkflowObject.query.filter(BibWorkflowObject.workflow_id == workflow.uuid,
-                                                 BibWorkflowObject.parent_id == None)
+        objects = BibWorkflowObject.query.filter(BibWorkflowObject.id_workflow == workflow.uuid,
+                                                 BibWorkflowObject.id_parent == None)
 
-        all_objects = BibWorkflowObject.query.filter(BibWorkflowObject.workflow_id == workflow.uuid)
+        all_objects = BibWorkflowObject.query.filter(BibWorkflowObject.id_workflow == workflow.uuid)
         self.assertEqual(all_objects.count(), 2)
 
         # Check the workflow execution
@@ -186,31 +186,31 @@ distances from it.
         self.assertEqual(obj_halted.data, objects[0].data)
 
         # Check if first object were untached
-        self.assertEqual(obj_init.workflow_id, "123")
-        self.assertEqual(obj_halted.workflow_id, "123")
+        self.assertEqual(obj_init.id_workflow, "123")
+        self.assertEqual(obj_halted.id_workflow, "123")
 
     def test_workflow_for_finished_object(self):
         """Test starting workflow with finished object given"""
         from invenio.bibworkflow_model import BibWorkflowObject
         initial_data = {'data': 20}
         obj_init = BibWorkflowObject(data=initial_data,
-                                     workflow_id=253,
+                                     id_workflow=253,
                                      version=CFG_OBJECT_VERSION.INITIAL)
         obj_init._update_db()
         first_final_data = {'data': 41}
         obj_final = BibWorkflowObject(data=first_final_data,
-                                       workflow_id=253,
-                                       parent_id=obj_init.id,
+                                       id_workflow=253,
+                                       id_parent=obj_init.id,
                                        version=CFG_OBJECT_VERSION.FINAL)
         obj_final._update_db()
 
         workflow = run('test_workflow', [{'id': obj_final.id}], task_queue=False)
 
         final_data = {'data': 62}
-        objects = BibWorkflowObject.query.filter(BibWorkflowObject.workflow_id == workflow.uuid,
-                                                 BibWorkflowObject.parent_id == None)
+        objects = BibWorkflowObject.query.filter(BibWorkflowObject.id_workflow == workflow.uuid,
+                                                 BibWorkflowObject.id_parent == None)
 
-        all_objects = BibWorkflowObject.query.filter(BibWorkflowObject.workflow_id == workflow.uuid)
+        all_objects = BibWorkflowObject.query.filter(BibWorkflowObject.id_workflow == workflow.uuid)
         self.assertEqual(all_objects.count(), 2)
 
         # Check the workflow execution
@@ -220,8 +220,8 @@ distances from it.
         self.assertEqual(obj_final.data, objects[0].data)
 
         # Check if first object were untached
-        self.assertEqual(obj_init.workflow_id, "253")
-        self.assertEqual(obj_final.workflow_id, "253")
+        self.assertEqual(obj_init.id_workflow, "253")
+        self.assertEqual(obj_final.id_workflow, "253")
 
     def test_logging_for_workflow_objects_without_workflow(self):
         """This test run a virtual object out of a workflow for
@@ -231,7 +231,7 @@ distances from it.
         from invenio.bibworkflow_model import BibWorkflowObjectLogging
         initial_data = {'data': 20}
         obj_init = BibWorkflowObject(data=initial_data,
-                                     workflow_id=11,
+                                     id_workflow=11,
                                      version=CFG_OBJECT_VERSION.INITIAL)
         obj_init._update_db()
         obj_init.save()
@@ -239,7 +239,7 @@ distances from it.
         obj_init.log_error("This is an error message")
         obj_init.log_debug("This is a debug message")
         obj_init._update_db()
-        obj_test = BibWorkflowObjectLogging.query.filter(BibWorkflowObjectLogging.bibworkflowobject_id == obj_init.id).all()
+        obj_test = BibWorkflowObjectLogging.query.filter(BibWorkflowObjectLogging.id_bibworkflowobject == obj_init.id).all()
 
         messages_found = 0
         for current_obj in obj_test:
@@ -259,22 +259,22 @@ distances from it.
         from invenio.bibworkflow_model import BibWorkflowObject
         initial_data = {'data': 20}
         obj_init = BibWorkflowObject(data=initial_data,
-                                     workflow_id=11,
+                                     id_workflow=11,
                                      version=CFG_OBJECT_VERSION.INITIAL)
         obj_init._update_db()
         running_data = {'data': 26}
         obj_running = BibWorkflowObject(data=running_data,
-                                        workflow_id=11,
-                                        parent_id=obj_init.id,
+                                        id_workflow=11,
+                                        id_parent=obj_init.id,
                                         version=CFG_OBJECT_VERSION.RUNNING)
         obj_running._update_db()
         workflow = run('test_workflow', [{'id': obj_running.id}], task_queue=False)
 
         final_data = {'data': 41}
-        objects = BibWorkflowObject.query.filter(BibWorkflowObject.workflow_id == workflow.uuid,
-                                                 BibWorkflowObject.parent_id == None)
+        objects = BibWorkflowObject.query.filter(BibWorkflowObject.id_workflow == workflow.uuid,
+                                                 BibWorkflowObject.id_parent == None)
 
-        all_objects = BibWorkflowObject.query.filter(BibWorkflowObject.workflow_id == workflow.uuid)
+        all_objects = BibWorkflowObject.query.filter(BibWorkflowObject.id_workflow == workflow.uuid)
         self.assertEqual(all_objects.count(), 2)
 
         # Check the workflow execution
@@ -284,7 +284,7 @@ distances from it.
         self.assertEqual(obj_init.data, objects[0].data)
 
         # Check if first object were untached
-        self.assertEqual(obj_init.workflow_id, "11")
+        self.assertEqual(obj_init.id_workflow, "11")
         objects = BibWorkflowObject.query.filter(BibWorkflowObject.id == obj_running.id)
         self.assertEqual(objects.count(), 0)
 
@@ -301,40 +301,40 @@ distances from it.
         # testing restarting from previous task
         init_workflow = run("test_workflow", data=[{"data": initial_data}], task_queue=False)
 
-        obj_halted = BibWorkflowObject.query.filter(BibWorkflowObject.workflow_id == init_workflow.uuid,
+        obj_halted = BibWorkflowObject.query.filter(BibWorkflowObject.id_workflow == init_workflow.uuid,
                                                     BibWorkflowObject.version == CFG_OBJECT_VERSION.HALTED).first()
         workflow = continue_oid(obj_halted.id, "restart_prev", task_queue=False)
         object = BibWorkflowObject.query.filter(BibWorkflowObject.id == obj_halted.id)
         self.assertEqual(object.count(), 1)
         self.assertEqual(object[0].data, final_data_prev)
 
-        all_objects = BibWorkflowObject.query.filter(BibWorkflowObject.workflow_id == workflow.uuid)
+        all_objects = BibWorkflowObject.query.filter(BibWorkflowObject.id_workflow == workflow.uuid)
         self.assertEqual(all_objects.count(), 2)
 
         # testing restarting from current task
         init_workflow2 = run("test_workflow", data=[{"data": initial_data}], task_queue=False)
 
-        obj_halted2 = BibWorkflowObject.query.filter(BibWorkflowObject.workflow_id == init_workflow2.uuid,
+        obj_halted2 = BibWorkflowObject.query.filter(BibWorkflowObject.id_workflow == init_workflow2.uuid,
                                                      BibWorkflowObject.version == CFG_OBJECT_VERSION.HALTED).first()
         workflow2 = continue_oid(obj_halted.id, "restart_task", task_queue=False)
         object2 = BibWorkflowObject.query.filter(BibWorkflowObject.id == obj_halted2.id)
         self.assertEqual(object2.count(), 1)
         self.assertEqual(object2[0].data, final_data_curr)
 
-        all_objects2 = BibWorkflowObject.query.filter(BibWorkflowObject.workflow_id == workflow2.uuid)
+        all_objects2 = BibWorkflowObject.query.filter(BibWorkflowObject.id_workflow == workflow2.uuid)
         self.assertEqual(all_objects2.count(), 2)
 
         # testing continuing from next task
         init_workflow3 = run("test_workflow", data=[{"data": initial_data}], task_queue=False)
 
-        obj_halted3 = BibWorkflowObject.query.filter(BibWorkflowObject.workflow_id == init_workflow3.uuid,
+        obj_halted3 = BibWorkflowObject.query.filter(BibWorkflowObject.id_workflow == init_workflow3.uuid,
                                                      BibWorkflowObject.version == CFG_OBJECT_VERSION.HALTED).first()
         workflow3 = continue_oid(obj_halted3.id, "continue_next", task_queue=False)
         object3 = BibWorkflowObject.query.filter(BibWorkflowObject.id == obj_halted3.id)
         self.assertEqual(object3.count(), 1)
         self.assertEqual(object3[0].data, final_data_next)
 
-        all_objects3 = BibWorkflowObject.query.filter(BibWorkflowObject.workflow_id == workflow3.uuid)
+        all_objects3 = BibWorkflowObject.query.filter(BibWorkflowObject.id_workflow == workflow3.uuid)
         self.assertEqual(all_objects3.count(), 2)
 
     def test_restart_workflow(self):
@@ -345,15 +345,15 @@ distances from it.
 
         # testing restarting from previous task
         init_workflow = run("test_workflow", data=[{"data": initial_data}], task_queue=False)
-        init_objects = BibWorkflowObject.query.filter(BibWorkflowObject.workflow_id == init_workflow.uuid)
+        init_objects = BibWorkflowObject.query.filter(BibWorkflowObject.id_workflow == init_workflow.uuid)
 
         restarted_workflow = run_by_wid(init_workflow.uuid, task_queue=False)
-        restarted_objects = BibWorkflowObject.query.filter(BibWorkflowObject.workflow_id == restarted_workflow.uuid)
+        restarted_objects = BibWorkflowObject.query.filter(BibWorkflowObject.id_workflow == restarted_workflow.uuid)
 
         self.assertEqual(restarted_objects.count(), 1)
 
         self.assertEqual(restarted_objects[0].version, init_objects[1].version)
-        self.assertEqual(restarted_objects[0].parent_id, init_objects[0].id)
+        self.assertEqual(restarted_objects[0].id_parent, init_objects[0].id)
         self.assertEqual(restarted_objects[0].data, init_objects[1].data)
 
     def test_simplified_data(self):
@@ -369,13 +369,13 @@ distances from it.
                        task_queue=False)
 
         # Keep id for cleanup after
-        self.workflow_ids.append(workflow.uuid)
+        self.id_workflows.append(workflow.uuid)
 
         # Get parent object of the workflow we just ran
         # NOTE: ignore PEP8 here for None
-        objects = BibWorkflowObject.query.filter(BibWorkflowObject.workflow_id == workflow.uuid,
-                                                 BibWorkflowObject.parent_id == None)
-        all_objects = BibWorkflowObject.query.filter(BibWorkflowObject.workflow_id == workflow.uuid)
+        objects = BibWorkflowObject.query.filter(BibWorkflowObject.id_workflow == workflow.uuid,
+                                                 BibWorkflowObject.id_parent == None)
+        all_objects = BibWorkflowObject.query.filter(BibWorkflowObject.id_workflow == workflow.uuid)
         self.assertEqual(all_objects.count(), 2)
         self._check_workflow_execution(workflow, objects,
                                        initial_data, final_data)
