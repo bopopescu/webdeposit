@@ -60,7 +60,6 @@ def load_table():
     Function used for the passing of JSON data to the DataTable
     """
     from flask import request
-    from invenio.bibworkflow_containers import containers
 
     print '-----------REQUEST-----------'
     print request.args.get('iDisplayStart')
@@ -68,6 +67,14 @@ def load_table():
     print request.args.get('sEcho')
     print request.args.get('sSearch')
     print request.args.get('iSortCol_0')
+    print request.args.get('sSortDir_0')
+
+    iDisplayStart = request.args.get('iDisplayStart')
+    iDisplayLength = request.args.get('iDisplayLength')
+    sSearch = request.args.get('sSearch')
+    iSortCol_0 = request.args.get('iSortCol_0')
+    sSortDir_0 = request.args.get('sSortDir_0')
+    containers = create_hp_containers(iSortCol_0, sSortDir_0, sSearch)
 
     iDisplayStart = int(request.args.get('iDisplayStart'))
     iDisplayLength = int(request.args.get('iDisplayLength'))
@@ -86,7 +93,7 @@ def load_table():
             container.version = '<span class="label label-warning">Halted</span>'
         table_data['aaData'].append([str(container.initial.id),
                                      None,
-                                     None,
+                                     '<a id="info_button" class="btn btn-info pull-center text-center" href="/admin/bibholdingpen/register"><i class="icon-white icon-zoom-in"></i></a>',
                                      None,
                                      str(container.initial.workflow_id),
                                      str(container.current.extra_data['owner']),
@@ -98,6 +105,21 @@ def load_table():
                                      str(container.id) + '"><i class="icon-wrench"></i></a>',
                                      ])
     return table_data
+
+
+@blueprint.route('/resolve_approval', methods=['GET', 'POST'])
+@blueprint.invenio_wash_urlargd({'hpcontainerid': (int, 0)})
+def resolve_approval(hpcontainerid):
+    from flask import request
+    print hpcontainerid
+    print request.form['submitButton']
+    if request.form['submitButton'] == 'Accept':
+        continue_oid(hpcontainerid)
+        flash('Record Accepted')
+    elif request.form['submitButton'] == 'Reject':
+        _delete_from_db(hpcontainerid)
+        flash('Record Rejected')
+    return redirect(url_for('bibholdingpen.index'))
 
 
 @blueprint.route('/details', methods=['GET', 'POST'])
@@ -160,23 +182,28 @@ def delete_from_db(hpcontainerid):
     """
     Deletes all available versions of the object from the db
     """
+    _delete_from_db(hpcontainerid)
+    flash('Record Deleted')
+    return redirect(url_for('bibholdingpen.index'))
+
+
+def _delete_from_db(hpcontainerid):
     from invenio.sqlalchemyutils import db
     containers = create_hp_containers()
 
     for hpc in containers:
+        print hpc.id
         if hpc.id == int(hpcontainerid):
             hpcontainer = hpc
 
     # delete every BibWorkflowObject version from the db
     BibWorkflowObject.query.filter(BibWorkflowObject.id == hpcontainer.id).delete()
     if hpcontainer.error:
-        BibWorkflowObject.query.filter(BibWorkflowObject.id == hpcontainer.error.bwobject.id).delete()
+        BibWorkflowObject.query.filter(BibWorkflowObject.id == hpcontainer.error.id).delete()
     if hpcontainer.final:
-        BibWorkflowObject.query.filter(BibWorkflowObject.id == hpcontainer.final.bwobject.id).delete()
+        BibWorkflowObject.query.filter(BibWorkflowObject.id == hpcontainer.final.id).delete()
 
     db.session.commit()
-    flash('Record Deleted')
-    return redirect(url_for('bibholdingpen.index'))
 
 
 @blueprint.route('/widget', methods=['GET', 'POST'])
@@ -203,6 +230,7 @@ def show_widget(hpcontainerid, widget):
             bwobject = BibWorkflowObject.query.filter(BibWorkflowObject.parent_id == bwobject.id).first()
             matches = bwobject.extra_data['tasks_results']['match_record']
 
+        print matches
         match_preview = []
         # adding dummy matches
         match_preview.append(BibWorkflowObject.query.filter(BibWorkflowObject.id == hpcontainerid).first())
@@ -226,6 +254,7 @@ def entry_data_preview(oid, recformat):
     """
     Presents the data in a human readble form or in xml code
     """
+    print 'OID:', oid
     hpobject = BibWorkflowObject.query.filter(BibWorkflowObject.id == int(oid)).first()
     return _entry_data_preview(hpobject.data, recformat)
 

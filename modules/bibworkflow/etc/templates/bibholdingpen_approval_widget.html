@@ -35,10 +35,12 @@
             </div>
         </div>
         <div id="decision-btns" class="row-fluid">
-            {% set widget = widget() %}
-            {% for field in widget %}
-                {{ field }}
-            {% endfor %}
+            <form method="POST" action="{{ url_for('bibholdingpen.resolve_approval', hpcontainerid=hpcontainer.id) }}" method="get">
+                {% set widget = widget() %}
+                {% for field in widget %}
+                    {{ field }}
+                {% endfor %}
+            </form>
         </div>  
     </div>
 {% endblock %}

@@ -14,27 +14,22 @@
 ## You should have received a copy of the GNU General Public License
 ## along with Invenio; if not, write to the Free Software Foundation, Inc.,
 ## 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+from invenio.sqlalchemyutils import db
 
 
-class HoldingPenContainer():
+class HoldingPenContainer(db.Model):
     """
     Class containing three HPItems of a single record plus metadata for
     the record
     """
-    def __init__(self, initial, error=None, final=None, owner="", description="",
-                 ISBN=0, invenio_id=0, publisher="", category="", version=0):
-        self.id = initial.id
-        self.initial = initial
-        self.error = error
-        self.final = final
-        if self.final:
-            self.current = self.final
-        elif self.error:
-            self.current = self.error
-        self.owner = owner
-        self.description = description
-        self.ISBN = ISBN
-        self.invenio_id = invenio_id
-        self.publisher = publisher
-        self.category = category
-        self.version = version
+    __tablename__ = "hpContainers"
+    bwo_parent_id = db.Column(db.Integer, nullable=False)
+    children = db.Column(db.JSON, default={})
+    metadata = db.Column(db.JSON, default={})
+
+    def __init__(self, bwo_parent, children=None, metadata=None):
+        # owner="", description="",
+        # ISBN=0, invenio_id=0, publisher="", category="", version=0):
+        self.bwo_parent_id = bwo_parent.id
+        self.children = children
+        self.metadata = metadata

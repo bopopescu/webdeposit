@@ -26,5 +26,4 @@ from invenio.bibworkflow_workflow_definition import WorkflowDefinition
 class marcxml_workflow(WorkflowDefinition):
     def __init__(self):
         super(marcxml_workflow, self).__init__()
-        self.definition = [approve_record,
-                           match_record]
+        self.definition = [match_record]

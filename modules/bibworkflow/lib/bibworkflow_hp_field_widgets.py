@@ -25,9 +25,8 @@ def bootstrap_submit(field):
            % html_params(id="submitButton",
                          class_="btn btn-primary btn-large",
                          name="submitButton",
-                         type="submitButton",
+                         type="submit",
                          value=field.label.text,)
-    html = [u'<div style="float:right;" ></br>' + html + u'</div>']
     return HTMLString(u''.join(html))
 
 
@@ -39,7 +38,7 @@ def bootstrap_accept(field):
            % html_params(id="submitButton",
                          class_="btn btn-success",
                          name="submitButton",
-                         type="submitButton",
+                         type="submit",
                          value=field.label.text,)
     return HTMLString(u''.join(html))
 
@@ -52,6 +51,6 @@ def bootstrap_reject(field):
            % html_params(id="submitButton",
                          class_="btn btn-danger",
                          name="submitButton",
-                         type="submitButton",
+                         type="submit",
                          value=field.label.text,)
     return HTMLString(u''.join(html))

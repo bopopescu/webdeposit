@@ -25,6 +25,7 @@ from invenio.pluginutils import PluginContainer
 from invenio.config import CFG_PYLIBDIR
 from invenio.errorlib import register_exception
 from invenio.bibworkflow_hp_container import HoldingPenContainer
+from invenio.sqlalchemyutils import db
 
 
 REGEXP_RECORD = re.compile("<record.*?>(.*?)</record>", re.DOTALL)
@@ -119,7 +120,7 @@ class dictproperty(object):
         return self._proxy(obj, self._fget, self._fset, self._fdel)
 
 
-def create_hp_containers():
+def create_hp_containers(iSortCol_0=None, sSortDir_0=None, sSearch=None):
     """
     Looks for related HPItems and groups them together in HPContainers
 
@@ -127,27 +128,60 @@ def create_hp_containers():
     @return: A list containing all the HPContainers.
     """
     from invenio.bibworkflow_model import BibWorkflowObject
+
     hpcontainers = []
 
     redis_server = set_up_redis()
+    print 'Sorting by column:', iSortCol_0
+    print 'Type of sortcol:', type(iSortCol_0)
 
-    for bwobject in BibWorkflowObject.query.all():
-        error = None
-        final = None
-        if bwobject.parent_id:
-            continue
-        else:
-            initial = bwobject
-            for child in iter(BibWorkflowObject.query.filter(BibWorkflowObject.parent_id == bwobject.id)):
-                if child.version == 1:
-                    error = child
-                    continue
-                elif child.version == 2:
-                    final = child
-                    continue
-        HPcontainer = HoldingPenContainer(initial, error, final)
-        hpcontainers.append(HPcontainer)
-        redis_server.set("hpc"+str(HPcontainer.id), cPickle.dumps(HPcontainer))
+    if iSortCol_0:
+        iSortCol_0 = int(iSortCol_0)
+
+    if iSortCol_0 == 6:
+        column = 'created'
+        print 'Sortarw twra'
+        if sSortDir_0 == 'desc':
+            bwobject_list = BibWorkflowObject.query.order_by(db.desc(column)).all()
+        elif sSortDir_0 == 'asc':
+            bwobject_list = BibWorkflowObject.query.order_by(db.asc(column)).all()
+
+        for bwobject in bwobject_list:
+            error = None
+            final = None
+            if bwobject.parent_id:
+                continue
+            else:
+                initial = bwobject
+                for child in iter(BibWorkflowObject.query.filter(BibWorkflowObject.parent_id == bwobject.id)):
+                    if child.version == 1:
+                        error = child
+                        continue
+                    elif child.version == 2:
+                        final = child
+                        continue
+            HPcontainer = HoldingPenContainer(initial, error, final)
+            hpcontainers.append(HPcontainer)
+            redis_server.set("hpc"+str(HPcontainer.id), cPickle.dumps(HPcontainer))
+
+    else:
+        for bwobject in BibWorkflowObject.query.all():
+            error = None
+            final = None
+            if bwobject.parent_id:
+                continue
+            else:
+                initial = bwobject
+                for child in iter(BibWorkflowObject.query.filter(BibWorkflowObject.parent_id == bwobject.id)):
+                    if child.version == 1:
+                        error = child
+                        continue
+                    elif child.version == 2:
+                        final = child
+                        continue
+            HPcontainer = HoldingPenContainer(initial, error, final)
+            hpcontainers.append(HPcontainer)
+            redis_server.set("hpc"+str(HPcontainer.id), cPickle.dumps(HPcontainer))
 
     return hpcontainers
 
