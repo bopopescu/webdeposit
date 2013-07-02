@@ -51,6 +51,15 @@ def authorize_user(user_id=None):
     return user_auth
 
 
+def populate_form_data(form_data):
+    """ Pass a json to initialize the values of the forms.
+        If two forms use the same name for a field,
+        the value is passed to the one that is rendered first."""
+    def populate(obj, eng):
+        obj.data['form_values'] = form_data
+    return populate
+
+
 def render_form(form):
     def render(obj, eng):
         from invenio.webdeposit_utils import get_last_step, CFG_DRAFT_STATUS, \
@@ -63,14 +72,28 @@ def render_form(form):
         step = get_last_step(eng.getCurrTaskId())
         form_type = form.__name__
 
+        if obj.data.has_key('form_values') and obj.data['form_values'] is not None:
+            form_values = obj.data['form_values']
+        else:
+            form_values = {}
         # Prefill the form from cache
         cached_form = get_preingested_form_data(user_id, cached_data=True)
-        if cached_form is not None:
-            form_values = cached_form
+
+        # Check for preingested data from webdeposit API
+        preingested_form_data = get_preingested_form_data(user_id, uuid)
+        if preingested_form_data != {} and preingested_form_data is not None:
+            form_data = preingested_form_data
+        elif cached_form is not None:
+            form_data = cached_form
             # Clear cache
             preingest_form_data(user_id, None, cached_data=True)
         else:
-            form_values = {}
+            form_data = {}
+
+        # Filter the form_data to match the current form
+        for field in form():
+            if field.name in form_data:
+                form_values[field.name] = form_data[field.name]
 
         draft = dict(form_type=form_type,
                      form_values=form_values,
@@ -80,7 +103,7 @@ def render_form(form):
 
         Workflow.set_extra_data(user_id=user_id, uuid=uuid,
                                 setter=add_draft(draft))
-
+    render.__form_type__ = form.__name__
     return render
 
 
@@ -108,10 +131,30 @@ def export_marc_from_json():
 
         from invenio.webdeposit_utils import get_form
         json_reader = JsonReader()
+
+        try:
+            pop_obj = Workflow.get_extra_data(user_id=user_id, uuid=uuid,
+                                              key='pop_obj')
+        except KeyError:
+            pop_obj = None
+
+        form_data = {}
+        if 'form_values' in obj.data or pop_obj is not None:
+
+            # copy the form values to be able to
+            # delete the fields in the workflow object during iteration
+            form_data = pop_obj or obj.data['form_values']
+
+        # Populate the form with data
         for step in range(steps_num):
             form = get_form(user_id, uuid, step)
+
             # Insert the fields' values in bibfield's rec_json dictionary
             if form is not None:  # some steps don't have any form ...
+                # Populate preingested data
+                for field in form:
+                    if field.name in form_data:
+                        field.data = form_data.pop(field.name)
                 json_reader = form.cook_json(json_reader)
 
         deposition_type = \
