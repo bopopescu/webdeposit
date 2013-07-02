@@ -118,18 +118,18 @@ span.ui-icon.ui-icon-circle-triangle-e { color: transparent; cursor: pointer; }
 
     {% for group, fields in form.get_groups() %}
 
-    {% if loop.index == 1 %}
+    {% if loop.first %}
     <div class="row">
     <div id="webdeposit_form_accordion" class="offset1 span8 accordion">
     {% endif %}
 
-    {% if group.name != 'Rest' %}
+    {% if group %}
     <div class="accordion-group">
         <div class="accordion-heading">
           <a class="accordion-toggle" data-toggle="collapse"
                href="#collapse-{{ loop.index }}">
                {{ group.name }} <b class="caret" style="margin-top: 8px;"></b>
-               {% if 'meta' in group and 'indication' in group.meta %}
+               {% if group.meta.indication %}
                    <span class="pull-right muted">{{ group.meta.indication }}</spani>
                {% endif %}
           </a>
@@ -140,7 +140,7 @@ span.ui-icon.ui-icon-circle-triangle-e { color: transparent; cursor: pointer; }
         <br>
     {% endif %}
 
-    {% if 'meta' in group and 'description' in group.meta%}
+    {% if group and group.meta.description%}
         <p>{{ group.meta.description }}</p>
     {% endif %}
 
@@ -198,7 +198,8 @@ span.ui-icon.ui-icon-circle-triangle-e { color: transparent; cursor: pointer; }
 
           {% if subfield.errors %}
             {% for error in subfield.errors %}
-              <div class="alert alert-error help-inline error-list-{{ subfield.name }}">{{ error }}</div>
+              <div class="alert alert-error help-inline error-list-{{
+                  subfield.name }} style='width:256px;'">{{ error }}</div>
             {% endfor %}
           {% endif %}
           <div class="alert alert-error help-inline" id="error-{{ subfield.name }}" style="display:none;">error message</div>
@@ -243,10 +244,10 @@ span.ui-icon.ui-icon-circle-triangle-e { color: transparent; cursor: pointer; }
 
           {% if field.errors %}
             {% for error in field.errors %}
-              <div class="alert alert-error help-inline error-list-{{ field.name }}">{{ error }}</div>
+            <div class="alert alert-error help-inline error-list-{{ field.name }} style='width:256px;'">{{ error }}</div>
             {% endfor %}
           {% endif %}
-              <div class="alert alert-error help-inline" id="error-{{ field.name }}" style="display:none;">error message</div>
+              <div class="alert alert-error help-inline" id="error-{{ field.name }}" style="display:none; width:256px;">error message</div>
               <div class="alert alert-info help-inline" id="info-{{ field.name }}" style="display:none;">info message</div>
               <div class="alert alert-success help-inline" id="success-{{ field.name }}" style="display:none;">success message</div>
           </div>
@@ -261,7 +262,7 @@ span.ui-icon.ui-icon-circle-triangle-e { color: transparent; cursor: pointer; }
 
     {% endif %}
     {% endfor %}
-    {% if group != 'Rest' %}
+    {% if group %}
         </div>
         </div>
         </div>

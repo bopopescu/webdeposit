@@ -22,6 +22,11 @@ from invenio.wtforms_utils import InvenioForm as Form
 from invenio.webdeposit_config_utils import WebDepositConfiguration
 from invenio.webdeposit_cook_json_utils import cook_files, uncook_files
 
+CFG_GROUPS_META = {
+    'classes': None,
+    'indication': None,
+    'description': None
+}
 
 class WebDepositForm(Form):
 
@@ -48,14 +53,15 @@ class WebDepositForm(Form):
 
         self.groups_meta = {}
         if hasattr(self, 'groups'):
-            for group in self.groups:
+            for idx, group in enumerate(self.groups):
                 group_name = group[0]
                 fields = group[1]
                 for field in fields:
                     setattr(self[field], 'group', group_name)
+
+                self.groups_meta[group_name] = CFG_GROUPS_META.copy()
                 if len(group) == 3:  # If group has metadata
-                    group_meta = group[2]
-                    self.groups_meta[group_name] = group_meta
+                    self.groups_meta[group_name].update(group[2])
 
     def cook_json(self, json_reader):
         for field in self._fields.values():
@@ -82,27 +88,33 @@ class WebDepositForm(Form):
         return webdeposit_json
 
     def get_groups(self):
-        groups = [({"name": 'Rest'}, [])]
-        # Just a dict for optimization
-        groups_hash = {}
+        fields_included = set()
+        field_groups = []
+
+        if hasattr(self, 'groups'):
+            for group in self.groups:
+                group_obj = {
+                    'name': group[0],
+                    'meta': CFG_GROUPS_META.copy(),
+                }
+
+                fields = []
+                for field_name in group[1]:
+                    fields.append(self[field_name])
+                    fields_included.add(field_name)
+
+                if len(group) == 3:
+                    group_obj['meta'].update(group[2])
+
+                field_groups.append((group_obj, fields))
+
+        # Append missing fields not defined in groups
+        rest_fields = []
         for field in self:
-            if hasattr(field, 'group') and field.group is not None:
-                if not field.group in groups_hash:
-                    groups_hash[field.group] = len(groups)
-                    # Append group to the list
-                    groups.append(({"name": field.group}, []))
-                # Append field to group's field list
-                groups[groups_hash[field.group]][1].append(field)
+            if field.name not in fields_included:
+                rest_fields.append(field)
+        if rest_fields:
+            field_groups.append((None, rest_fields))
 
-                if field.group in self.groups_meta:
-                    # Add group's meta (description etc)
-                    groups[groups_hash[field.group]][0]['meta'] = \
-                        self.groups_meta[field.group]
-            else:
-                # Append to Rest
-                groups[0][1].append(field)
+        return field_groups
 
-        # Append rest fields in the end
-        rest = groups.pop(0)
-        groups.append(rest)
-        return groups
