@@ -17,7 +17,29 @@
 ## along with Invenio; if not, write to the Free Software Foundation, Inc.,
 ## 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+""" WebDeposit Utils
+Set of utilities to be used by blueprint, forms and fields.
+
+It contains functions to start a workflow, retrieve it and edit its data.
+The basic entities are the forms and fields which are stored in json.
+(forms are referred as drafts before they haven't been submitted yet.)
+
+The file field is handled separately and all the files are attached in the json
+as a list in the 'files' key.
+
+Some functions contain the keyword `preingest`. This refers to the json that is
+stored in the 'pop_obj' key, which is used to store data before running the
+workflow. This is being used e.g. in the wedbeposit api where the workflow is
+being run without a user submitting the forms, so this json is being used to
+preinsert data into the webdeposit workflow.
+"""
+
+
 import os
+import shutil
+from flask import request
+from glob import iglob
+from werkzeug.utils import secure_filename
 from datetime import datetime
 from wtforms import FormField
 from sqlalchemy.orm.exc import NoResultFound
@@ -41,8 +63,8 @@ CFG_DRAFT_STATUS = {
 }
 
 
-
 """ Setters/Getters for bibworklflow """
+
 
 def draft_getter(step=None):
     """Returns a json with the current form values.
@@ -82,6 +104,7 @@ def draft_setter(step=None, key=None, value=None, field_setter=False):
         draft['timestamp'] = str(datetime.now())
     return draft_setter_func
 
+
 def add_draft(draft):
     """ Adds a form draft. """
     def setter(json):
@@ -89,10 +112,28 @@ def add_draft(draft):
         if not 'drafts' in json:
             json['drafts'] = {}
         if not step in json['drafts'] and \
-            not unicode(step) in json['drafts']:
+           not unicode(step) in json['drafts']:
             json['drafts'][step] = draft
     return setter
 
+
+def draft_field_list_setter(field_name, value):
+    def setter(json):
+        draft = json['drafts'][max(json['drafts'])]
+        values = draft['form_values']
+        try:
+            if isinstance(values[field_name], list):
+                values[field_name].append(value)
+            else:
+                new_values_list = [values[field_name]]
+                new_values_list.append(value)
+                values[field_name] = new_values_list
+        except KeyError:
+            values[field_name] = [value]
+
+        draft['timestamp'] = str(datetime.now())
+
+    return setter
 
 """ Workflow functions  """
 
@@ -367,50 +408,60 @@ def draft_field_list_add(user_id, uuid, field_name, value,
            { field_name : {key : value} }
     """
 
-    def draft_field_list_setter(field_name, value):
-        def setter(json):
-            draft = json['drafts'][max(json['drafts'])]
-            values = draft['form_values']
-            try:
-                if isinstance(values[field_name], list):
-                    values[field_name].append(value)
-                else:
-                    new_values_list = [values[field_name]]
-                    new_values_list.append(value)
-                    values[field_name] = new_values_list
-            except KeyError:
-                values[field_name] = [value]
-
-            draft['timestamp'] = str(datetime.now())
-
-        return setter
-
     Workflow.set_extra_data(user_id=user_id, uuid=uuid,
                             setter=draft_field_list_setter(field_name, value))
     return
 
-    # get the draft with the max step
-    values = draft['form_values']
 
-    try:
-        if isinstance(values[field_name], list):
-            values[field_name].append(value)
-        elif subfield is not None:
-            if not isinstance(values[field_name], dict):
-                values[field_name] = dict()
-            values[field_name][subfield] = value
-        else:
-            new_values_list = [values[field_name]]
-            new_values_list.append(value)
-            values[field_name] = new_values_list
-    except KeyError:
-        values[field_name] = [value]
+def preingest_form_data(user_id, uuid, form_data, append=False):
+    """Used to insert form data to the workflow before running it
+    Creates an identical json structure to the draft json
 
-    db.session.query(WebDepositDraft).\
-        filter(WebDepositDraft.uuid == uuid,
-               WebDepositDraft.step == draft.step).\
-        update({"form_values": values,
-                "timestamp": datetime.now()})
+    @param user_id: the user id
+
+    @param uuid: the id of the workflow
+
+    @param form_data: a json with field_name -> value structure
+
+    @param append: set to True if you want to append the values to the existing
+                   ones
+    """
+    def preingest_data(form_data):
+        def preingest(json):
+            if 'pop_obj' not in json:
+                json['pop_obj'] = {}
+            for field, value in form_data.items():
+                if append:
+                    try:
+                        if isinstance(json['pop_obj'][field], list):
+                            json['pop_obj'][field].append(value)
+                        else:
+                            new_values_list = [json['pop_obj'][field]]
+                            new_values_list.append(value)
+                            json['pop_obj'][field] = new_values_list
+                    except KeyError:
+                        json['pop_obj'][field] = [value]
+                else:
+                    json['pop_obj'][field] = value
+        return preingest
+
+    Workflow.set_extra_data(user_id=user_id, uuid=uuid,
+                            setter=preingest_data(form_data))
+
+
+def get_preingested_form_data(user_id, uuid, key=None):
+    def get_preingested_data(key):
+        def getter(json):
+            if 'pop_obj' in json:
+                if key is None:
+                    return json['pop_obj']
+                else:
+                    return json['pop_obj'][key]
+            else:
+                return {}
+        return getter
+    return Workflow.get_extra_data(user_id, uuid=uuid,
+                                   getter=get_preingested_data(key))
 
 
 def get_all_drafts(user_id):
@@ -546,3 +597,119 @@ def url_upload(user_id, deposition_type, uuid, url, name=None, size=None):
                          "files", file_metadata)
 
     return unique_filename
+
+
+def deposit_files(user_id, deposition_type, uuid, preingest=False):
+    """Attach files to a workflow
+    Upload a single file or a file in chunks.
+    Function must be called within a blueprint function that handles file
+    uploading.
+
+    Request post parameters:
+        chunks: number of chunks
+        chunk: current chunk number
+        name: name of the file
+
+    @param user_id: the user id
+
+    @param deposition_type: the deposition the files will be attached
+
+    @param uuid: the id of the deposition
+
+    @param preingest: set to True if you want to store the file metadata in the
+                      workflow before running the workflow, i.e. to bind the
+                      files to the workflow and not in the last form draft.
+
+    @return: the path of the uploaded file
+    """
+    if request.method == 'POST':
+        try:
+            chunks = request.form['chunks']
+            chunk = request.form['chunk']
+        except KeyError:
+            chunks = None
+            pass
+        name = request.form['name']
+        current_chunk = request.files['file']
+
+        try:
+            filename = secure_filename(name) + "_" + chunk
+        except UnboundLocalError:
+            filename = secure_filename(name)
+
+        CFG_USER_WEBDEPOSIT_FOLDER = create_user_file_system(user_id,
+                                                             deposition_type,
+                                                             uuid)
+
+        # Save the chunk
+        current_chunk.save(os.path.join(CFG_USER_WEBDEPOSIT_FOLDER, filename))
+
+        unique_filename = ""
+
+        if chunks is None:  # file is a single chunk
+            unique_filename = str(new_uuid()) + filename
+            old_path = os.path.join(CFG_USER_WEBDEPOSIT_FOLDER, filename)
+            file_path = os.path.join(CFG_USER_WEBDEPOSIT_FOLDER,
+                                     unique_filename)
+            os.rename(old_path, file_path)  # Rename the chunk
+            size = os.path.getsize(file_path)
+            file_metadata = dict(name=name, file=file_path, size=size)
+            if preingest:
+                preingest_form_data(user_id, uuid, {'files': file_metadata})
+            else:
+                draft_field_list_add(user_id, uuid,
+                                     "files", file_metadata)
+        elif int(chunk) == int(chunks) - 1:
+            '''All chunks have been uploaded!
+                start merging the chunks'''
+            filename = secure_filename(name)
+            chunk_files = []
+            for chunk_file in iglob(os.path.join(CFG_USER_WEBDEPOSIT_FOLDER,
+                                                 filename + '_*')):
+                chunk_files.append(chunk_file)
+
+            # Sort files in numerical order
+            chunk_files.sort(key=lambda x: int(x.split("_")[-1]))
+
+            unique_filename = str(new_uuid()) + filename
+            file_path = os.path.join(CFG_USER_WEBDEPOSIT_FOLDER,
+                                     unique_filename)
+            destination = open(file_path, 'wb')
+            for chunk in chunk_files:
+                shutil.copyfileobj(open(chunk, 'rb'), destination)
+                os.remove(chunk)
+            destination.close()
+            size = os.path.getsize(file_path)
+            file_metadata = dict(name=name, file=file_path, size=size)
+            if preingest:
+                preingest_form_data(user_id, uuid, {'files': file_metadata})
+            else:
+                draft_field_list_add(user_id, uuid,
+                                     "files", file_metadata)
+    return unique_filename
+
+
+def delete_file(user_id, uuid, preingest=False):
+    if request.method == 'POST':
+        files = draft_field_get(user_id, uuid, "files")
+        result = "File Not Found"
+        filename = request.form['filename']
+        if preingest:
+            files = get_preingested_form_data(user_id, uuid, 'files')
+        else:
+            files = draft_field_get(user_id, uuid, "files")
+
+        for i, f in enumerate(files):
+            if filename == f['file'].split('/')[-1]:
+                # get the unique name from the path
+                os.remove(f['file'])
+                del files[i]
+                result = str(files) + "              "
+                if preingest:
+                    preingest_form_data(user_id, uuid, files)
+                else:
+                    draft_field_set(current_user.get_id(), uuid,
+                                    "files", files)
+                result = "File " + f['name'] + " Deleted"
+                break
+    return result
