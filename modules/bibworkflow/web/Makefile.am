@@ -16,9 +16,13 @@
 ## 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 cssdir=$(localstatedir)/www/css
+jsdir=$(localstatedir)/www/js
 
-css_DATA = bibworkflow_style.css
+css_DATA = bibworkflow_style.css DT_bootstrap.css
 
-EXTRA_DIST = $(css_DATA)
+js_DATA = DT_bootstrap.js
+
+EXTRA_DIST = $(css_DATA) \
+             $(js_DATA)
 
 CLEANFILES = *~ *.tmp

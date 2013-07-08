@@ -21,11 +21,11 @@ __revision__ = "$Id$"
 __lastupdated__ = """$Date$"""
 
 from flask import render_template
-from invenio.bibworkflow_model import BibWorkflowObject
+from invenio.bibworkflow_model import BibWorkflowObject, Workflow
 from invenio.config import CFG_LOGDIR
 from invenio.webinterface_handler_flask_utils import _, InvenioBlueprint
 from invenio.bibworkflow_utils import getWorkflowDefinition
-from invenio.bibworkflow_api import continue_oid
+from invenio.bibworkflow_api import continue_oid, run
 from invenio.bibworkflow_hp_load_widgets import widgets
 from invenio.bibworkflow_model import Workflow
 
@@ -34,8 +34,10 @@ from invenio.bibformat_engine import format_record
 
 from invenio.bibworkflow_utils import create_hp_containers
 
-blueprint = InvenioBlueprint('bibholdingpen', __name__, url_prefix="/admin/bibholdingpen",
-                             menubuilder=[('main.admin.bibholdingpen', _('Holdingpen'),
+blueprint = InvenioBlueprint('bibholdingpen', __name__,
+                             url_prefix="/admin/bibholdingpen",
+                             menubuilder=[('main.admin.bibholdingpen',
+                                          _('Holdingpen'),
                                            'bibholdingpen.index')],
                              breadcrumbs=[(_('Administration'), 'help.admin'),
                                           (_('Holdingpen'), 'bibholdingpen.index')])
@@ -61,14 +63,6 @@ def load_table():
     """
     from flask import request
 
-    print '-----------REQUEST-----------'
-    print request.args.get('iDisplayStart')
-    print request.args.get('iDisplayLength')
-    print request.args.get('sEcho')
-    print request.args.get('sSearch')
-    print request.args.get('iSortCol_0')
-    print request.args.get('sSortDir_0')
-
     iDisplayStart = request.args.get('iDisplayStart')
     iDisplayLength = request.args.get('iDisplayLength')
     sSearch = request.args.get('sSearch')
@@ -91,25 +85,38 @@ def load_table():
             container.version = '<span class="label label-success">Final</span>'
         elif container.error:
             container.version = '<span class="label label-warning">Halted</span>'
-        table_data['aaData'].append([str(container.initial.id),
-                                     None,
-                                     '<a id="info_button" class="btn btn-info pull-center text-center" href="/admin/bibholdingpen/register"><i class="icon-white icon-zoom-in"></i></a>',
-                                     None,
-                                     str(container.initial.workflow_id),
-                                     str(container.current.extra_data['owner']),
-                                     str(container.initial.created),
-                                     str(container.version),
-                                     '<a id="info_button" class="btn btn-info pull-center text-center" href="/admin/bibholdingpen/details?hpcontainerid=' +
-                                     str(container.id) + '"><i class="icon-white icon-zoom-in"></i></a>',
-                                     '<a class="btn btn-info" href="/admin/bibholdingpen/widget?widget=bibmatch_widget&hpcontainerid=' +
-                                     str(container.id) + '"><i class="icon-wrench"></i></a>',
-                                     ])
+        if container.widget:
+            widget_link = '<a class="btn btn-info"' + \
+                          'href="/admin/bibholdingpen/widget?widget=' + \
+                          container.widget + \
+                          '&hpcontainerid=' + \
+                          str(container.id) + \
+                          '"><i class="icon-wrench"></i></a>'
+        else:
+            widget_link = None
+        table_data['aaData'].append(
+            [str(container.initial.id),
+             None,
+             None,
+             None,
+             str(container.initial.workflow_id),
+             str(container.current.extra_data['owner']),
+             str(container.initial.created),
+             str(container.version),
+             '<a id="info_button" class="btn btn-info pull-center text-center"' +
+             'href="/admin/bibholdingpen/details?hpcontainerid=' +
+             str(container.id) + '"><i class="icon-white icon-zoom-in"></i></a>',
+             widget_link,
+             ])
     return table_data
 
 
 @blueprint.route('/resolve_approval', methods=['GET', 'POST'])
 @blueprint.invenio_wash_urlargd({'hpcontainerid': (int, 0)})
 def resolve_approval(hpcontainerid):
+    """
+    Resolves the action taken in the approval widget
+    """
     from flask import request
     print hpcontainerid
     print request.form['submitButton']
@@ -133,7 +140,8 @@ def details(hpcontainerid):
     containers = create_hp_containers()
 
     # search for parents
-    bwobject = BibWorkflowObject.query.filter(BibWorkflowObject.id == hpcontainerid).first()
+    bwobject = BibWorkflowObject.query.filter(BibWorkflowObject.id ==
+                                              hpcontainerid).first()
     if bwobject.parent_id:
         hpcontainerid = bwobject.parent_id
 
@@ -151,7 +159,8 @@ def details(hpcontainerid):
         except:
             pass
 
-    w_metadata = Workflow.query.filter(Workflow.uuid == hpcontainer.initial.workflow_id).first()
+    w_metadata = Workflow.query.filter(Workflow.uuid ==
+                                       hpcontainer.initial.workflow_id).first()
     # read the logtext from the file system
     try:
         f = open(CFG_LOGDIR + "/object_" + str(hpcontainer.initial.id)
@@ -159,20 +168,36 @@ def details(hpcontainerid):
         logtext = f.read()
     except IOError:
         logtext = ""
-    return render_template('bibholdingpen_details.html', hpcontainer=hpcontainer, info=info,
-                           log=logtext, data_preview=_entry_data_preview(hpcontainer.initial.data['data']),
+    return render_template('bibholdingpen_details.html', hpcontainer=hpcontainer,
+                           info=info, log=logtext,
+                           data_preview=_entry_data_preview(hpcontainer.initial.data['data']),
                            workflow_func=getWorkflowDefinition(w_metadata.name))
 
 
-@blueprint.route('/restart', methods=['GET', 'POST'])
+@blueprint.route('/restart_record', methods=['GET', 'POST'])
 @blueprint.invenio_authenticated
-@blueprint.invenio_wash_urlargd({'hpobjectid': (int, 0)})
-def restart_record(hpobjectid, start_point='beginning'):
+@blueprint.invenio_wash_urlargd({'hpcontainerid': (int, 0)})
+def restart_record(hpcontainerid, start_point='beginning'):
     """
     Restarts the initial object in its workflow
     """
-    continue_oid(hpobjectid, start_point)
-    return "Object restarted"
+    workflow_id = BibWorkflowObject.query.filter(BibWorkflowObject.id ==
+                                                 hpcontainerid).first().workflow_id
+    wname = Workflow.query.filter(Workflow.uuid == workflow_id).first().name
+    run(wname, [{'id': hpcontainerid}])
+    flash('Record Restarted')
+    return "Record restarted"
+
+
+@blueprint.route('/restart_record_prev', methods=['GET', 'POST'])
+@blueprint.invenio_authenticated
+@blueprint.invenio_wash_urlargd({'hpcontainerid': (int, 0)})
+def restart_record_prev(hpcontainerid):
+    """
+    Restarts the initial object in its workflow from the current task
+    """
+    continue_oid(hpcontainerid, "restart_task")
+    return "Record restarted from previous task"
 
 
 @blueprint.route('/delete_from_db', methods=['GET', 'POST'])
@@ -197,11 +222,14 @@ def _delete_from_db(hpcontainerid):
             hpcontainer = hpc
 
     # delete every BibWorkflowObject version from the db
-    BibWorkflowObject.query.filter(BibWorkflowObject.id == hpcontainer.id).delete()
+    BibWorkflowObject.query.filter(BibWorkflowObject.id ==
+                                   hpcontainer.id).delete()
     if hpcontainer.error:
-        BibWorkflowObject.query.filter(BibWorkflowObject.id == hpcontainer.error.id).delete()
+        BibWorkflowObject.query.filter(BibWorkflowObject.id ==
+                                       hpcontainer.error.id).delete()
     if hpcontainer.final:
-        BibWorkflowObject.query.filter(BibWorkflowObject.id == hpcontainer.final.id).delete()
+        BibWorkflowObject.query.filter(BibWorkflowObject.id ==
+                                       hpcontainer.final.id).delete()
 
     db.session.commit()
 
@@ -227,23 +255,29 @@ def show_widget(hpcontainerid, widget):
         try:
             matches = bwobject.extra_data['tasks_results']['match_record']
         except:
-            bwobject = BibWorkflowObject.query.filter(BibWorkflowObject.parent_id == bwobject.id).first()
+            bwobject = BibWorkflowObject.query.filter(BibWorkflowObject.parent_id ==
+                                                      bwobject.id).first()
             matches = bwobject.extra_data['tasks_results']['match_record']
 
         print matches
         match_preview = []
         # adding dummy matches
-        match_preview.append(BibWorkflowObject.query.filter(BibWorkflowObject.id == hpcontainerid).first())
-        match_preview.append(BibWorkflowObject.query.filter(BibWorkflowObject.id == hpcontainerid).first())
+        match_preview.append(BibWorkflowObject.query.filter(BibWorkflowObject.id ==
+                                                            hpcontainerid).first())
+        match_preview.append(BibWorkflowObject.query.filter(BibWorkflowObject.id ==
+                                                            hpcontainerid).first())
         data_preview = _entry_data_preview(bwobject.data['data'])
 
-        return render_template('bibholdingpen_'+widget+'.html', hpcontainer=hpcontainer, widget=widget_form,
-                               match_preview=match_preview, matches=matches, data_preview=data_preview)
+        return render_template('bibholdingpen_'+widget+'.html', hpcontainer=hpcontainer,
+                               widget=widget_form,
+                               match_preview=match_preview, matches=matches,
+                               data_preview=data_preview)
 
     elif widget == 'approval_widget':
         # setting up approval widget
         data_preview = _entry_data_preview(bwobject.data['data'])
-        return render_template('bibholdingpen_approval_widget.html', hpcontainer=hpcontainer,
+        return render_template('bibholdingpen_approval_widget.html',
+                               hpcontainer=hpcontainer,
                                widget=widget_form, data_preview=data_preview)
 
 
@@ -254,8 +288,8 @@ def entry_data_preview(oid, recformat):
     """
     Presents the data in a human readble form or in xml code
     """
-    print 'OID:', oid
-    hpobject = BibWorkflowObject.query.filter(BibWorkflowObject.id == int(oid)).first()
+    hpobject = BibWorkflowObject.query.filter(BibWorkflowObject.id ==
+                                              int(oid)).first()
     return _entry_data_preview(hpobject.data, recformat)
 
 

@@ -8,7 +8,7 @@ $(document).ready(function(){
         hpo_id = $(this).attr('name');
         console.log(hpo_id);
         jQuery.ajax({
-            url: "/admin/bibholdingpen/restart?hpobjectid=" + hpo_id,
+            url: "/admin/bibholdingpen/restart_record?hpcontainerid=" + hpo_id,
             success: function(json){
                 bootstrap_alert('Object restarted');
             }
@@ -19,7 +19,7 @@ $(document).ready(function(){
         hpo_id = $(this).attr('name');
         console.log(hpo_id);
         jQuery.ajax({
-            url: "/admin/bibholdingpen/restart?hpobjectid=" + hpo_id + "&start_point=prev",
+            url: "/admin/bibholdingpen/restart_record_prev?hpcontainerid=" + hpo_id,
             success: function(json){
                 bootstrap_alert('Object restarted from previous task');        
             }

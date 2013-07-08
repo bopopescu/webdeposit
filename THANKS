@@ -213,4 +213,7 @@ The original dateutils.stfrtime function was taken from
 <https://github.com/django/django/blob/stable/1.4.x/django/utils/datetime_safe.py>
 Author: Russell Keith-Magee <russell@keith-magee.com>
 
+The bootstrap theme for jQuery's DataTables used in holdingpen was taken from
+<http://datatables.net/media/blog/bootstrap_2/DT_bootstrap.css>
+
 - end of file -
