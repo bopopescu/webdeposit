@@ -21,8 +21,9 @@ class HoldingPenContainer():
     Class containing three HPItems of a single record plus metadata for
     the record
     """
-    def __init__(self, initial, error=None, final=None, owner="", description="",
-                 ISBN=0, invenio_id=0, publisher="", category="", version=0):
+    def __init__(self, initial, error=None, final=None, owner="",
+                 description="", ISBN=0, invenio_id=0,
+                 publisher="", category="", version=0):
         self.id = initial.id
         self.initial = initial
         self.error = error

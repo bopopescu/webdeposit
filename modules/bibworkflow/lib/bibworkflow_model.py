@@ -75,18 +75,18 @@ class WorkflowLogging(db.Model):
     extra_data = db.Column(db.JSON, default={})
 
     def __repr__(self):
-        return "Workflow log: %i, %s, %s, %s" % (self.id, self.workflow_id, self.message, self.created)
+        return "Workflow log: %i, %s, %s, %s" % \
+               (self.id, self.workflow_id, self.message, self.created)
 
 
 class Workflow(db.Model):
     __tablename__ = "bwlWORKFLOW"
     uuid = db.Column(db.String(36), primary_key=True, nullable=False)
-    name = db.Column(db.String(255), default="Default workflow", nullable=False)
-    created = db.Column(db.DateTime, default=datetime.now(), nullable=False)
-    modified = db.Column(db.DateTime, default=datetime.now(),
-                         nullable=False,  index=True)
+    name = db.Column(db.String(255), default="Default workflow",
+                     nullable=False)
     created = db.Column(db.DateTime, default=datetime.now, nullable=False)
-    modified = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now, nullable=False)
+    modified = db.Column(db.DateTime, default=datetime.now,
+                         onupdate=datetime.now, nullable=False)
     user_id = db.Column(db.Integer, default=0, nullable=False)
     extra_data = db.Column(db.JSON, default={})
     status = db.Column(db.Integer, default=0, nullable=False)
@@ -98,9 +98,9 @@ class Workflow(db.Model):
     counter_finished = db.Column(db.Integer, default=0, nullable=False)
     module_name = db.Column(db.String(64), nullable=False)
 
-
     def __repr__(self):
-        return "<Workflow(name: %s, module: %s, cre: %s, mod: %s, user_id: %s, status: %s)>" % \
+        return "<Workflow(name: %s, module: %s, cre: %s, mod: %s," \
+               "user_id: %s, status: %s)>" % \
             (str(self.name),
              str(self.module_name),
              str(self.created),
@@ -128,7 +128,10 @@ class Workflow(db.Model):
                              str(self.modified),
                              str(self.status),
                              str(self.current_object),
-                             str(self.counter_initial), str(self.counter_halted), str(self.counter_error), str(self.counter_finished),
+                             str(self.counter_initial),
+                             str(self.counter_halted),
+                             str(self.counter_error),
+                             str(self.counter_finished),
                              str(self.extra_data),)
 
     @classmethod
@@ -225,7 +228,9 @@ class BibWorkflowObjectLogging(db.Model):
     #db table definition
     __tablename__ = 'bwlOBJECTLOGGING'
     id = db.Column(db.Integer, primary_key=True)
-    bibworkflowobject_id = db.Column(db.Integer(255), db.ForeignKey('bwlOBJECT.id'), nullable=False)
+    bibworkflowobject_id = db.Column(db.Integer(255),
+                                     db.ForeignKey('bwlOBJECT.id'),
+                                     nullable=False)
     type = db.Column(db.Integer, default=0, nullable=False)
     created = db.Column(db.DateTime, default=datetime.now)
     message = db.Column(db.String(500), default="", nullable=False)
@@ -238,7 +243,8 @@ class BibWorkflowObjectLogging(db.Model):
     #That's all
     ###
     def __repr__(self):
-        return "<Object(%i, %s, %s, %s)>" % (self.id, self.bibworkflowobject_id, self.message, self.created)
+        return "<Object(%i, %s, %s, %s)>" % \
+               (self.id, self.bibworkflowobject_id, self.message, self.created)
 
 
 class BibWorkflowObject(db.Model):
@@ -246,20 +252,27 @@ class BibWorkflowObject(db.Model):
     __tablename__ = "bwlOBJECT"
     id = db.Column(db.Integer, primary_key=True)
     data = db.Column(db.JSON, nullable=False)
-    extra_data = db.Column(db.JSON, nullable=False, default={"tasks_results": {},
-                                                             "owner": {},
-                                                             "task_counter": {},
-                                                             "error_msg": "",
-                                                             "last_task_name": "",
-                                                             "latest_object": -1})
-    workflow_id = db.Column(db.String(36), db.ForeignKey("bwlWORKFLOW.uuid"), nullable=False)
-    version = db.Column(db.Integer(3), default=CFG_OBJECT_VERSION.RUNNING, nullable=False)
-    parent_id = db.Column(db.Integer, db.ForeignKey("bwlOBJECT.id"), default=None)
-    child_objects = db.relationship("BibWorkflowObject", remote_side=[parent_id])
+    extra_data = db.Column(db.JSON,
+                           nullable=False, default={"tasks_results": {},
+                                                    "owner": {},
+                                                    "task_counter": {},
+                                                    "error_msg": "",
+                                                    "last_task_name": "",
+                                                    "latest_object": -1})
+    workflow_id = db.Column(db.String(36),
+                            db.ForeignKey("bwlWORKFLOW.uuid"), nullable=False)
+    version = db.Column(db.Integer(3),
+                        default=CFG_OBJECT_VERSION.RUNNING, nullable=False)
+    parent_id = db.Column(db.Integer,
+                          db.ForeignKey("bwlOBJECT.id"), default=None)
+    child_objects = db.relationship("BibWorkflowObject",
+                                    remote_side=[parent_id])
     created = db.Column(db.DateTime, default=datetime.now, nullable=False)
-    modified = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now, nullable=False)
+    modified = db.Column(db.DateTime, default=datetime.now,
+                         onupdate=datetime.now, nullable=False)
     status = db.Column(db.String(255), default="", nullable=False)
-    data_type = db.Column(db.String(50), default=determineDataType, nullable=False)
+    data_type = db.Column(db.String(50), default=determineDataType,
+                          nullable=False)
     uri = db.Column(db.String(500), default="")
     child_logs = db.relationship("BibWorkflowObjectLogging")
 
@@ -327,8 +340,7 @@ BibWorkflowObject
         Data: %s
         Extra data: %s
 -------------------------------
-""" % (  # str(self.extra_object_class),
-       str(self.status),
+""" % (str(self.status),
        str(self.id),
        str(self.parent_id),
        str(self.workflow_id),
@@ -340,6 +352,7 @@ BibWorkflowObject
        str(self.uri),
        str(self.data),
        str(self.extra_data),)
+       # str(self.extra_object_class),
 
     def __eq__(self, other):
         if isinstance(other, BibWorkflowObject):
@@ -381,7 +394,8 @@ BibWorkflowObject
     def getCurrentTask(self):
         return self.extra_data["task_counter"]
 
-    def _create_version_obj(self, workflow_id, version, parent_id=None, no_update=False):
+    def _create_version_obj(self, workflow_id, version, parent_id=None,
+                            no_update=False):
         obj = BibWorkflowObject(data=self.data,
                                 workflow_id=workflow_id,
                                 version=version,

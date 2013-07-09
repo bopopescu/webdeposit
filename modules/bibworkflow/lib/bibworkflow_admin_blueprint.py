@@ -117,7 +117,8 @@ def run_workflow(workflow_name, data={"data": 10}):
 @blueprint.invenio_wash_urlargd({'oid': (int, 0),
                                 'of': (unicode, 'default')})
 def entry_data_preview(oid, of):
-    workflow_object = BibWorkflowObject.query.filter(BibWorkflowObject.id == oid).first()
+    workflow_object = BibWorkflowObject.query.filter(BibWorkflowObject.id ==
+                                                     oid).first()
     return _entry_data_preview(workflow_object.data, of)
 
 

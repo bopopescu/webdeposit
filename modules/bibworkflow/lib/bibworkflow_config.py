@@ -20,6 +20,7 @@
 import os
 from invenio.config import CFG_LOGDIR
 
+
 def enum(**enums):
     return type('Enum', (), enums)
 
@@ -27,6 +28,7 @@ CFG_WORKFLOW_STATUS = enum(NEW=0, RUNNING=1, HALTED=2, ERROR=3, FINISHED=4)
 CFG_OBJECT_VERSION = enum(INITIAL=0, FINAL=1, HALTED=2, RUNNING=3)
 CFG_OBJECT_STATUS = enum(ERROR="ERROR - Something went wrong!",
                          RUNNING="RUNNING - Workflow in process",
-                         FINISHED="FINISHED - Workflow was finished for this object"
+                         FINISHED="FINISHED - Workflow was finished" +
+                                  "for this object"
                          )
 CFG_LOG_TYPE = enum(INFO=0, ERROR=1, DEBUG=2)

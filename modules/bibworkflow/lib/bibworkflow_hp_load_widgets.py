@@ -48,7 +48,6 @@ CFG_WIDGETS = PluginContainer(os.path.join(CFG_PYLIBDIR, 'invenio',
 widgets = {}
 for widget in CFG_WIDGETS.itervalues():
     widgets[widget.__name__] = widget
-print widgets
 
 # ## Let's report about broken plugins
 # open(os.path.join(CFG_LOGDIR, 'broken-deposition-fields.log'), 'w').write(

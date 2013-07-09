@@ -40,7 +40,8 @@ blueprint = InvenioBlueprint('bibholdingpen', __name__,
                                           _('Holdingpen'),
                                            'bibholdingpen.index')],
                              breadcrumbs=[(_('Administration'), 'help.admin'),
-                                          (_('Holdingpen'), 'bibholdingpen.index')])
+                                          (_('Holdingpen'),
+                                           'bibholdingpen.index')])
 
 
 @blueprint.route('/index', methods=['GET', 'POST'])
@@ -82,9 +83,11 @@ def load_table():
         table_data['iTotalRecords'] = len(containers)
         table_data['iTotalDisplayRecords'] = len(containers)
         if container.final:
-            container.version = '<span class="label label-success">Final</span>'
+            container.version = \
+                '<span class="label label-success">Final</span>'
         elif container.error:
-            container.version = '<span class="label label-warning">Halted</span>'
+            container.version = \
+                '<span class="label label-warning">Halted</span>'
         if container.widget:
             widget_link = '<a class="btn btn-info"' + \
                           'href="/admin/bibholdingpen/widget?widget=' + \
@@ -103,9 +106,11 @@ def load_table():
              str(container.current.extra_data['owner']),
              str(container.initial.created),
              str(container.version),
-             '<a id="info_button" class="btn btn-info pull-center text-center"' +
+             '<a id="info_button" ' +
+             'class="btn btn-info pull-center text-center"' +
              'href="/admin/bibholdingpen/details?hpcontainerid=' +
-             str(container.id) + '"><i class="icon-white icon-zoom-in"></i></a>',
+             str(container.id) +
+             '"><i class="icon-white icon-zoom-in"></i></a>',
              widget_link,
              ])
     return table_data
@@ -118,8 +123,6 @@ def resolve_approval(hpcontainerid):
     Resolves the action taken in the approval widget
     """
     from flask import request
-    print hpcontainerid
-    print request.form['submitButton']
     if request.form['submitButton'] == 'Accept':
         continue_oid(hpcontainerid)
         flash('Record Accepted')
@@ -168,10 +171,13 @@ def details(hpcontainerid):
         logtext = f.read()
     except IOError:
         logtext = ""
-    return render_template('bibholdingpen_details.html', hpcontainer=hpcontainer,
+    return render_template('bibholdingpen_details.html',
+                           hpcontainer=hpcontainer,
                            info=info, log=logtext,
-                           data_preview=_entry_data_preview(hpcontainer.initial.data['data']),
-                           workflow_func=getWorkflowDefinition(w_metadata.name))
+                           data_preview=_entry_data_preview(
+                               hpcontainer.initial.data['data']),
+                           workflow_func=getWorkflowDefinition(
+                               w_metadata.name))
 
 
 @blueprint.route('/restart_record', methods=['GET', 'POST'])
@@ -181,8 +187,8 @@ def restart_record(hpcontainerid, start_point='beginning'):
     """
     Restarts the initial object in its workflow
     """
-    workflow_id = BibWorkflowObject.query.filter(BibWorkflowObject.id ==
-                                                 hpcontainerid).first().workflow_id
+    workflow_id = BibWorkflowObject.query.filter(
+        BibWorkflowObject.id == hpcontainerid).first().workflow_id
     wname = Workflow.query.filter(Workflow.uuid == workflow_id).first().name
     run(wname, [{'id': hpcontainerid}])
     flash('Record Restarted')
@@ -217,7 +223,6 @@ def _delete_from_db(hpcontainerid):
     containers = create_hp_containers()
 
     for hpc in containers:
-        print hpc.id
         if hpc.id == int(hpcontainerid):
             hpcontainer = hpc
 
@@ -236,12 +241,14 @@ def _delete_from_db(hpcontainerid):
 
 @blueprint.route('/widget', methods=['GET', 'POST'])
 @blueprint.invenio_authenticated
-@blueprint.invenio_wash_urlargd({'hpcontainerid': (int, 0), 'widget': (unicode, ' ')})
+@blueprint.invenio_wash_urlargd({'hpcontainerid': (int, 0),
+                                 'widget': (unicode, ' ')})
 def show_widget(hpcontainerid, widget):
     """
     Renders the bibmatch widget for a specific record
     """
-    bwobject = BibWorkflowObject.query.filter(BibWorkflowObject.id == hpcontainerid).first()
+    bwobject = BibWorkflowObject.query.filter(BibWorkflowObject.id ==
+                                              hpcontainerid).first()
     containers = create_hp_containers()
 
     for hpc in containers:
@@ -255,20 +262,21 @@ def show_widget(hpcontainerid, widget):
         try:
             matches = bwobject.extra_data['tasks_results']['match_record']
         except:
-            bwobject = BibWorkflowObject.query.filter(BibWorkflowObject.parent_id ==
-                                                      bwobject.id).first()
+            bwobject = BibWorkflowObject.query.filter(
+                BibWorkflowObject.parent_id == bwobject.id).first()
             matches = bwobject.extra_data['tasks_results']['match_record']
 
         print matches
         match_preview = []
         # adding dummy matches
-        match_preview.append(BibWorkflowObject.query.filter(BibWorkflowObject.id ==
-                                                            hpcontainerid).first())
-        match_preview.append(BibWorkflowObject.query.filter(BibWorkflowObject.id ==
-                                                            hpcontainerid).first())
+        match_preview.append(BibWorkflowObject.query.filter(
+            BibWorkflowObject.id == hpcontainerid).first())
+        match_preview.append(BibWorkflowObject.query.filter(
+            BibWorkflowObject.id == hpcontainerid).first())
         data_preview = _entry_data_preview(bwobject.data['data'])
 
-        return render_template('bibholdingpen_'+widget+'.html', hpcontainer=hpcontainer,
+        return render_template('bibholdingpen_'+widget+'.html',
+                               hpcontainer=hpcontainer,
                                widget=widget_form,
                                match_preview=match_preview, matches=matches,
                                data_preview=data_preview)
@@ -283,7 +291,8 @@ def show_widget(hpcontainerid, widget):
 
 @blueprint.route('/entry_data_preview', methods=['GET', 'POST'])
 @blueprint.invenio_authenticated
-@blueprint.invenio_wash_urlargd({'oid': (unicode, '0'), 'recformat': (unicode, 'default')})
+@blueprint.invenio_wash_urlargd({'oid': (unicode, '0'),
+                                 'recformat': (unicode, 'default')})
 def entry_data_preview(oid, recformat):
     """
     Presents the data in a human readble form or in xml code
@@ -315,7 +324,8 @@ def _entry_data_preview(data, recformat='hd'):
     """
     if recformat == 'hd' or recformat == 'xm':
         try:
-            data['data'] = format_record(recID=None, of=recformat, xml_record=data['data'])
+            data['data'] = format_record(recID=None, of=recformat,
+                                         xml_record=data['data'])
         except:
             print "This is not a XML string"
     try:

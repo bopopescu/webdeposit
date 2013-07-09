@@ -53,7 +53,8 @@ def create_objects(path_to_file):
 
 
 def getWorkflowDefinition(name):
-    workflows = PluginContainer(os.path.join(CFG_PYLIBDIR, 'invenio', 'bibworkflow', 'workflows', '*.py'))
+    workflows = PluginContainer(os.path.join(CFG_PYLIBDIR, 'invenio',
+                                'bibworkflow', 'workflows', '*.py'))
     return workflows.get_enabled_plugins()[name]().get_definition()
 
 
@@ -74,7 +75,9 @@ def determineDataType(data):
         try:
             data_type = mime_checker.from_buffer(data)
         except:
-            register_exception(stream="warning", prefix="BibWorkflowObject.determineDataType: Impossible to resolve data type.")
+            register_exception(stream="warning", prefix=
+                               "BibWorkflowObject.determineDataType:" +
+                               " Impossible to resolve data type.")
             data_type = ""
     return data_type
 
@@ -142,9 +145,11 @@ def create_hp_containers(iSortCol_0=None, sSortDir_0=None, sSearch=None):
         column = 'created'
         print 'Sortarw twra'
         if sSortDir_0 == 'desc':
-            bwobject_list = BibWorkflowObject.query.order_by(db.desc(column)).all()
+            bwobject_list = BibWorkflowObject.query.order_by(
+                db.desc(column)).all()
         elif sSortDir_0 == 'asc':
-            bwobject_list = BibWorkflowObject.query.order_by(db.asc(column)).all()
+            bwobject_list = BibWorkflowObject.query.order_by(db.asc(
+                column)).all()
 
         for bwobject in bwobject_list:
             error = None
@@ -153,7 +158,8 @@ def create_hp_containers(iSortCol_0=None, sSortDir_0=None, sSearch=None):
                 continue
             else:
                 initial = bwobject
-                for child in iter(BibWorkflowObject.query.filter(BibWorkflowObject.parent_id == bwobject.id)):
+                for child in iter(BibWorkflowObject.query.filter(
+                                  BibWorkflowObject.parent_id == bwobject.id)):
                     if child.version == 1:
                         error = child
                         continue
@@ -162,7 +168,8 @@ def create_hp_containers(iSortCol_0=None, sSortDir_0=None, sSearch=None):
                         continue
             HPcontainer = HoldingPenContainer(initial, error, final)
             hpcontainers.append(HPcontainer)
-            redis_server.set("hpc"+str(HPcontainer.id), cPickle.dumps(HPcontainer))
+            redis_server.set("hpc"+str(HPcontainer.id),
+                             cPickle.dumps(HPcontainer))
 
     else:
         for bwobject in BibWorkflowObject.query.all():
@@ -172,7 +179,8 @@ def create_hp_containers(iSortCol_0=None, sSortDir_0=None, sSearch=None):
                 continue
             else:
                 initial = bwobject
-                for child in iter(BibWorkflowObject.query.filter(BibWorkflowObject.parent_id == bwobject.id)):
+                for child in iter(BibWorkflowObject.query.filter(
+                                  BibWorkflowObject.parent_id == bwobject.id)):
                     if child.version == 1:
                         error = child
                         continue
@@ -181,7 +189,8 @@ def create_hp_containers(iSortCol_0=None, sSortDir_0=None, sSearch=None):
                         continue
             HPcontainer = HoldingPenContainer(initial, error, final)
             hpcontainers.append(HPcontainer)
-            redis_server.set("hpc"+str(HPcontainer.id), cPickle.dumps(HPcontainer))
+            redis_server.set("hpc"+str(HPcontainer.id),
+                             cPickle.dumps(HPcontainer))
 
     return hpcontainers
 
