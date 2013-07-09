@@ -42,18 +42,19 @@ if CFG_BIBWORKFLOW_WORKER:
             write(pformat(workers.get_broken_plugins()))
 
 
-def run(wname, data, task_queue=USE_TASK_QUEUE, external_save=None):
+def run(workflow_name, data, task_queue=USE_TASK_QUEUE, external_save=None):
     """
-    Runs workflow by given name for specified data. Name is uniqe and is the
-    same as name of a file containing workflow. Data is a list of objects f.eg
-    dict, BibWorkflowObjects, WfeObjects.
+    Runs workflow by given name for specified data. The workflow name is
+    considered unique and it is the equal to thename of a file containing
+    a workflow definition. Data is a list of objects to run through the
+    workflow. For example: a list of dict, JSON string, BibWorkflowObjects etc.
     """
     from invenio.bibworkflow_worker_engine import runit
 
     if task_queue:
-        return WORKER().run(wname, data, external_save=external_save)
+        return WORKER().run(workflow_name, data, external_save=external_save)
     else:
-        return runit(wname, data, external_save=external_save)
+        return runit(workflow_name, data, external_save=external_save)
 
 
 def run_by_wid(wid, data=None, start_point="beginning",
