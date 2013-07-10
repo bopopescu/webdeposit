@@ -23,7 +23,7 @@ from wtforms.widgets import html_params, HTMLString
 def date_widget(field, **kwargs):
     field_id = kwargs.pop('id', field.id)
     html = [u'<input class="datepicker" %s type="text">'
-            % html_params(id=field_id, name=field_id, value=field.data)]
+            % html_params(id=field_id, name=field_id, value=field.data or '')]
     field_class = kwargs.pop('class', '') or kwargs.pop('class_', '')
     kwargs['class'] = u'datepicker %s' % field_class
     kwargs['class'] = u'date %s' % field_class
@@ -77,16 +77,8 @@ def ckeditor_widget(field, **kwargs):
     field.ckeditor = True
     field_id = kwargs.pop('id', field.id)
     html = [u'<textarea %s >'
-            % html_params(id=field_id, name=field_id, value=field.data)]
-    if field.data is not None:
-        html.append('%s</textarea>' % field.data)
-    else:
-        html.append('</textarea>')
-    return HTMLString(u''.join(html))
-
-    field_id = "ckeditor_" + field_id
-    html = [u'<textarea %s ></textarea>'
-            % html_params(id=field_id, name=field_id)]
+            % html_params(id=field_id, name=field_id, value=field.data or '')]
+    html.append('%s</textarea>' % field.data or '')
     return HTMLString(u''.join(html))
 
 
