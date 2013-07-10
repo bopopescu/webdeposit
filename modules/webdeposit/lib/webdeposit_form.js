@@ -454,6 +454,9 @@ if (document.getElementById("db-chooser") !== null) {
                     '</tr>');
                 $('#filelist #' + id).show('fast');
                 $('#uploadfiles').removeClass("disabled");
+                $('#' + dbfile.id + '_rm').on("click", function(event){
+                    $('#' + dbfile.id).hide('fast');
+                });
 
                 dropbox_files.push(dbfile);
             });
