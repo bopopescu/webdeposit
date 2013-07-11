@@ -18,13 +18,34 @@
  */
 
 
-/*
- * Plupload
- */
+/* Helpers */
 
 function unique_ID() {
     return Math.round(new Date().getTime() + (Math.random() * 100));
 }
+
+
+function getBytesWithUnit(bytes){
+	if( isNaN( bytes ) ){
+        return '';
+    }
+	var units = [' bytes', ' KB', ' MB', ' GB'];
+	var amountOf2s = Math.floor( Math.log( +bytes )/Math.log(2) );
+	if( amountOf2s < 1 ){
+		amountOf2s = 0;
+	}
+	var i = Math.floor( amountOf2s / 10 );
+	bytes = +bytes / Math.pow( 2, 10*i );
+
+	// Rounds to 2 decimals places.
+    bytes_to_fixed = bytes.toFixed(2)
+    if( bytes.toString().length > bytes_to_fixed.toString().length ){
+        bytes = bytes_to_fixed;
+    }
+	return bytes + units[i];
+};
+
+/* Plupload */
 
 function webdeposit_init_plupload(selector, url, delete_url, get_file_url, db_files, dropbox_url) {
 
@@ -46,6 +67,8 @@ function webdeposit_init_plupload(selector, url, delete_url, get_file_url, db_fi
         //]
     });
 
+    queue_progress = new plupload.QueueProgress()
+
     uploader.init();
 
     $(function() {
@@ -66,8 +89,11 @@ function webdeposit_init_plupload(selector, url, delete_url, get_file_url, db_fi
                 plfile.id = id;
                 plfile.name = file.name;
                 plfile.size = file.size;
-                plfile.loaded = file.size;
-                plfile.status = 5;
+                // loaded is set to 0 as a temporary fix plupload's  bug in
+                // calculating current upload speed. For checking if a file
+                // has been uploaded, check file.status
+                plfile.loaded = 0; //file.size;
+                plfile.status = 5; //status = plupload.DONE
                 plfile.percent = 100;
                 plfile.unique_filename = file.unique_filename;
                 ///////
@@ -75,7 +101,7 @@ function webdeposit_init_plupload(selector, url, delete_url, get_file_url, db_fi
                 $('#filelist').append(
                     '<tr id="' + plfile.id + '" style="display:none;">' +
                         '<td><a href="' + get_file_url + "?filename=" + plfile.unique_filename + '">' + plfile.name + '</a></td>' +
-                        '<td>' + plupload.formatSize(plfile.size) + '</td>' +
+                        '<td>' +  getBytesWithUnit(plfile.size) + '</td>' +
                         '<td width="30%"><div class="progress active"><div class="bar" style="width: 100%;"></div></div></td>' +
                         '<td><a id="' + plfile.id + '_rm" class="rmlink"><i class="icon-trash"></i></a></td>' +
                     '</tr>');
@@ -88,9 +114,9 @@ function webdeposit_init_plupload(selector, url, delete_url, get_file_url, db_fi
     });
 
     $('#uploadfiles').click(function(e) {
-        uploader.start();
-        $('#uploadfiles').hide();
+        $('#uploadfiles').addClass('disabled');
         $('#stopupload').show();
+        uploader.start();
         e.preventDefault();
 
         $.each(dropbox_files, function(i, file){
@@ -109,27 +135,26 @@ function webdeposit_init_plupload(selector, url, delete_url, get_file_url, db_fi
             });
         });
         dropbox_files = [];
-        $('#uploadfiles').addClass('disabled');
-        $('#stopupload').hide();
-        $('#uploadfiles').show();
     });
 
     $('#stopupload').click(function(d){
         uploader.stop();
         $('#stopupload').hide();
-        $('#uploadfiles').show();
+        $('#uploadfiles').removeClass('disabled');
         $.each(uploader.files, function(i, file) {
             if (file.loaded < file.size) {
                 $("#" + file.id + "_rm").show();
-                $('#' + file.id + " .bar").css('width', "0%");
+                //$('#' + file.id + " .bar").css('width', "0%");
             }
         });
+        $('#upload_speed').html('');
+        uploader.total.reset();
     });
 
     uploader.bind('FilesRemoved', function(up, files) {
         $.each(files, function(i, file) {
             $('#filelist #' + file.id).hide('fast');
-            if (file.loaded === file.size) {
+            if (file.status === plupload.DONE) { //If file has been successfully uploaded
                 $.ajax({
                     type: "POST",
                     url: delete_url,
@@ -147,8 +172,13 @@ function webdeposit_init_plupload(selector, url, delete_url, get_file_url, db_fi
 
     uploader.bind('UploadProgress', function(up, file) {
         $('#' + file.id + " .bar").css('width', file.percent + "%");
+        upload_speed = getBytesWithUnit(up.total.bytesPerSec) + " per sec";
         console.log("Progress " + file.name + " - " + file.percent);
+        $('#upload_speed').html(upload_speed);
+        up.total.reset();
     });
+
+
 
     uploader.bind('UploadFile', function(up, file) {
         $('#' + file.id + "_rm").hide();
@@ -158,11 +188,12 @@ function webdeposit_init_plupload(selector, url, delete_url, get_file_url, db_fi
     uploader.bind('FilesAdded', function(up, files) {
         $('#uploadfiles').removeClass("disabled");
         $('#file-table').show('slow');
+        up.total.reset();
         $.each(files, function(i, file) {
             $('#filelist').append(
                 '<tr id="' + file.id + '" style="display:none;z-index:-100;">' +
                 '<td id="' + file.id + '_link">' + file.name + '</td>' +
-                '<td>' + plupload.formatSize(file.size) + '</td>' +
+                '<td>' + getBytesWithUnit(file.size) + '</td>' +
                 '<td width="30%"><div class="progress progress-stri´ped active"><div class="bar" style="width: 0%;"></div></div></td>' +
                 '<td><a id="' + file.id + '_rm" class="rmlink"><i class="icon-trash"></i></a></td>' +
                 '</tr>');
@@ -183,9 +214,11 @@ function webdeposit_init_plupload(selector, url, delete_url, get_file_url, db_fi
         if (uploader.total.queued === 0)
             $('#stopupload').hide();
 
+        file.loaded = 0;
+        $('#upload_speed').html('');
         $('#uploadfiles').addClass('disabled');
         $('#uploadfiles').show();
-
+        up.total.reset();
     });
 
 }
@@ -265,7 +298,7 @@ function webdeposit_handle_field_data(name, value, data, url, required_fields) {
                     $('#filelist').append(
                         '<tr id="' + id + '" style="display:none;">' +
                             '<td id="' + id + '_link">' + file.name + '</td>' +
-                            '<td>' + plupload.formatSize(file.size) + '</td>' +
+                            '<td>' + getBytesWithUnit(file.size) + '</td>' +
                             '<td width="30%"><div class="progress active"><div class="bar" style="width: 100%;"></div></div></td>' +
                         '</tr>');
                     $('#filelist #' + id).show('fast');
@@ -448,7 +481,7 @@ if (document.getElementById("db-chooser") !== null) {
                 $('#filelist').append(
                     '<tr id="' + id + '" style="display:none;">' +
                         '<td id="' + id + '_link">' + file.name + '</td>' +
-                        '<td>' + plupload.formatSize(file.bytes) + '</td>' +
+                        '<td>' + getBytesWithUnit(file.bytes) + '</td>' +
                         '<td width="30%"><div class="progress active"><div class="bar" style="width: 0%;"></div></div></td>' +
                         '<td><a id="' + id + '_rm" class="rmlink"><i class="icon-trash"></i></a></td>' +
                     '</tr>');

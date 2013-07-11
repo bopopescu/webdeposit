@@ -55,7 +55,9 @@ def plupload_widget(field, **kwargs):
                 </table>\
                 <a class="btn btn-primary" id="pickfiles" >Select files</a> \
                 <a class="btn btn-success disabled" id="uploadfiles"><i class="icon-upload icon-white"></i> Start upload</a>\
-                <a class="btn btn-danger" id="stopupload" style="display:none;"><i class="icon-stop icon-white"></i> Stop upload</a>\
+                <a class="btn btn-danger" id="stopupload"\
+                style="display:none;"><i class="icon-stop icon-white"></i> Cancel upload</a>\
+                <span id="upload_speed" class="pull-right"></span>\
                 <div id="upload-errors"></div>\
             </div>' % html_params(id=field_id)]
     kwargs['class'] = u'plupload'
@@ -105,7 +107,8 @@ def dropbox_widget(field, **kwargs):
             <a class="btn btn-success disabled" id="uploadfiles"> \
                 <i class="icon-upload icon-white"></i> Start upload</a>\
             <a class="btn btn-danger" id="stopupload" style="display:none;">\
-                <i class="icon-stop icon-white"></i> Stop upload</a>\
+                <i class="icon-stop icon-white"></i> Cancel upload</a>\
+            <span id="upload_speed" class="pull-right"></span>\
             <div id="upload-errors"></div>\
         </div>' % html_params(id=field_id)]
     return HTMLString(u''.join(html))
