@@ -193,15 +193,3 @@ def create_hp_containers(iSortCol_0=None, sSortDir_0=None, sSearch=None):
                              cPickle.dumps(HPcontainer))
 
     return hpcontainers
-
-
-def set_up_redis(url="localhost"):
-    """
-    Sets up the redis server for the saving of the HPContainers
-
-    @type url: string
-    @param url: address to setup the Redis server
-    @return: Redis server object.
-    """
-    redis_server = redis.Redis(url)
-    return redis_server

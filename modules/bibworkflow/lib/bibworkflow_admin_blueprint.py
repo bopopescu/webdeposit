@@ -23,7 +23,7 @@ __lastupdated__ = """$Date$"""
 from flask import render_template
 from pprint import pformat
 from invenio.bibworkflow_model import Workflow, BibWorkflowObject
-from invenio.bibworkflow_api import run
+from invenio.bibworkflow_api import start
 import os
 from invenio.pluginutils import PluginContainer
 from invenio.config import CFG_PYLIBDIR, CFG_LOGDIR
@@ -106,7 +106,7 @@ def run_workflow(workflow_name, data={"data": 10}):
         external_save = None
         print workflow_name
         print 'Ready to run workflow'
-        run(workflow_name, data, external_save=external_save)
+        start(workflow_name, data, external_save=external_save)
     except:
         traceback.print_exc()
     return "Workflow has been started."

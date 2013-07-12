@@ -422,7 +422,7 @@ BibWorkflowObject
 
         Warning: Currently assumes non-binary content.
         """
-        if "data" in self.db_obj.data:
+        if "data" in self.data:
             tmp_fd, filename = tempfile.mkstemp(dir=directory,
                                                 prefix=prefix,
                                                 suffix=suffix)

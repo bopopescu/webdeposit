@@ -90,78 +90,6 @@ def continueit(oid, restart_point="next_task", external_save=None):
     continue_execution(wfe, data, restart_point)
     return wfe
 
-
-def parseDictionary(d, id_wfe=None):
-    if d is not dict:
-        return {'data': d, 'id_workflow': id_wfe, 'version': CFG_OBJECT_VERSION.INITIAL,
-            'id_parent': None, 'id': None, 'extra_data': None,
-            'task_counter': [0], 'user_id': 0,
-            'data_type': str(type(d)), 'uri': None}
-    try:
-        data = d['data']
-    except:
-        if not d['id']:
-            register_exception(prefix="Data field in dictionary passed to \
-                           workflow is empty! You also did not gave any id.")
-            raise
-        else:
-            data = None
-
-    try:
-        id_workflow = d['id_workflow']
-    except:
-        id_workflow = id_wfe
-
-    try:
-        version = d['version']
-    except:
-        version = CFG_OBJECT_VERSION.INITIAL
-
-    try:
-        id_parent = d['id_parent']
-    except:
-        id_parent = None
-
-    try:
-        id = d['id']
-    except:
-        id = None
-
-    try:
-        extra_data = d['extra_data']
-    except:
-        extra_data = None
-
-    try:
-        task_counter = d['task_counter']
-    except:
-        task_counter = [0]
-
-    try:
-        id_user = d['id_user']
-    except:
-        id_user = 0
-
-    try:
-        if d['data_type'] == 'auto':
-            data_type = determineDataType(d['data'])
-        elif isinstance(d['data_type'], str):
-            data_type = d['data_type']
-    except:
-        print 'could not resolve data type'
-        data_type = None
-
-    try:
-        uri = d['uri']
-    except:
-        uri = None
-
-    return {'data': data, 'id_workflow': id_workflow, 'version': version,
-            'id_parent': id_parent, 'id': id, 'extra_data': extra_data,
-            'task_counter': task_counter, 'id_user': id_user,
-            'data_type': data_type, 'uri': uri}
-
-
 def prepare_objects(data, workflow_object):
     objects = []
     for d in data:
@@ -172,29 +100,18 @@ def prepare_objects(data, workflow_object):
             else:
                 objects.append(d)
         else:
-            parsed_dict = parseDictionary(d, workflow_object.uuid)
-            if parsed_dict['id']:
-                obj = BibWorkflowObject.query.filter(BibWorkflowObject.id ==
-                                                     parsed_dict['id']).first()
-                objects.append(_prepare_objects_helper(obj, workflow_object))
-            else:
-                new_initial = \
-                    BibWorkflowObject(data=parsed_dict['data'],
-                                      id_workflow=parsed_dict['id_workflow'],
-                                      version=CFG_OBJECT_VERSION.INITIAL,
-                                      id_parent=None,
-                                      extra_data=parsed_dict['extra_data'],
-                                      data_type=parsed_dict['data_type'],
-                                      uri=parsed_dict['uri'])
-                new_initial._update_db()
-                objects.append(
-                    BibWorkflowObject(data=parsed_dict['data'],
-                                      id_workflow=parsed_dict['id_workflow'],
-                                      version=CFG_OBJECT_VERSION.RUNNING,
-                                      id_parent=new_initial.id,
-                                      extra_data=parsed_dict['extra_data'],
-                                      data_type=parsed_dict['data_type'],
-                                      uri=parsed_dict['uri']))
+            new_initial = \
+                BibWorkflowObject(data=d,
+                                  id_workflow=workflow_object.uuid,
+                                  version=CFG_OBJECT_VERSION.INITIAL
+                                  )
+            new_initial._update_db()
+            objects.append(
+                BibWorkflowObject(data=d,
+                                  id_workflow=workflow_object.uuid,
+                                  version=CFG_OBJECT_VERSION.RUNNING,
+                                  id_parent=new_initial.id
+                                  ))
 
     return objects
 

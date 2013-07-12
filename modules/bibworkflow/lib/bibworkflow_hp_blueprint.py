@@ -25,7 +25,7 @@ from invenio.bibworkflow_model import BibWorkflowObject, Workflow
 from invenio.config import CFG_LOGDIR
 from invenio.webinterface_handler_flask_utils import _, InvenioBlueprint
 from invenio.bibworkflow_utils import getWorkflowDefinition
-from invenio.bibworkflow_api import continue_oid, run
+from invenio.bibworkflow_api import continue_oid, start
 from invenio.bibworkflow_hp_load_widgets import widgets
 from invenio.bibworkflow_model import Workflow
 
@@ -190,7 +190,7 @@ def restart_record(hpcontainerid, start_point='beginning'):
     id_workflow = BibWorkflowObject.query.filter(
         BibWorkflowObject.id == hpcontainerid).first().id_workflow
     wname = Workflow.query.filter(Workflow.uuid == id_workflow).first().name
-    run(wname, [{'id': hpcontainerid}])
+    start(wname, [{'id': hpcontainerid}])
     flash('Record Restarted')
     return "Record restarted"
 

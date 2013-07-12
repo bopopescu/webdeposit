@@ -21,7 +21,7 @@ BibWorkflow Unit tests - functions to test workflows
 
 from invenio.testutils import make_flask_test_suite, run_test_suite, \
     FlaskSQLAlchemyTest
-from invenio.bibworkflow_api import run, run_by_wid, continue_oid
+from invenio.bibworkflow_api import start, start_by_wid, continue_oid, start_by_oids
 from invenio.inveniomanage import db
 from invenio.bibworkflow_config import CFG_OBJECT_VERSION
 
@@ -81,11 +81,12 @@ distances from it.
         from invenio.bibworkflow_model import BibWorkflowObject
 
         self.test_data = {'data': 20}
-        initial_data = self.test_data
+        initial_data = {'data': self.test_data}
         final_data = {'data': 41}
 
-        workflow = run(workflow_name="test_workflow",
-                       data=[{"data": self.test_data}],
+
+        workflow = start(workflow_name="test_workflow",
+                       data=[self.test_data],
                        task_queue=False)
 
         # Keep id for cleanup after
@@ -100,8 +101,8 @@ distances from it.
 
         # There should only be 2 objects (initial, final)
         self.assertEqual(all_objects.count(), 2)
-        self._check_workflow_execution(workflow, objects,
-                                       initial_data, final_data)
+        self._check_workflow_execution(workflow, initial_object,
+                                       self.test_data, final_data)
 
     def test_workflow_complex_run(self):
         """Tests running workflow with several data objects"""
@@ -110,7 +111,7 @@ distances from it.
         self.test_data = [{'data': {'data': 1}}, {'data':{'data': "wwww"}}, {'data':{'data': 20}}]
         final_data = [{'data': 19}, {'data': "wwww"}, {'data': 38}]
 
-        workflow = run(workflow_name="test_workflow_2",
+        workflow = start(workflow_name="test_workflow_2",
                        data=self.test_data,
                        task_queue=False)
 
@@ -144,8 +145,8 @@ distances from it.
         from invenio.bibworkflow_model import BibWorkflowObject
 
         initial_data = {'data': self.recxml, 'type': "text/xml"}
-        workflow = run(workflow_name="marcxml_workflow",
-                       data=[{"data": {'data': self.recxml}, 'type': "text/xml"}],
+        workflow = start(workflow_name="marcxml_workflow",
+                       data=[initial_data],
                        task_queue=False)
 
         # Keep id for cleanup after
@@ -160,6 +161,7 @@ distances from it.
             BibWorkflowObject.id_workflow == workflow.uuid)
         self.assertEqual(all_objects.count(), 2)
 
+        print map(lambda x: x, objects)
         self._check_workflow_execution(workflow, objects,
                                        initial_data, None)
 
@@ -178,7 +180,9 @@ distances from it.
                                        version=CFG_OBJECT_VERSION.HALTED)
         obj_halted._update_db()
 
-        workflow = run('test_workflow', [{'id': obj_halted.id}], task_queue=False)
+        workflow = start_by_oids('test_workflow',
+                                 [obj_halted.id],
+                                 task_queue=False)
 
         final_data = {'data': 2}
         objects = BibWorkflowObject.query.filter(
@@ -210,18 +214,18 @@ distances from it.
                                      id_workflow=253,
                                      version=CFG_OBJECT_VERSION.INITIAL)
         obj_init._update_db()
-        first_final_data = {'data': 41}
+        first_final_data = {u'data': 41}
         obj_final = BibWorkflowObject(data=first_final_data,
                                       id_workflow=253,
                                       id_parent=obj_init.id,
                                       version=CFG_OBJECT_VERSION.FINAL)
         obj_final._update_db()
 
-        workflow = run(workflow_name='test_workflow',
-                       data=[{'id': obj_final.id}],
-                       task_queue=False)
+        workflow = start_by_oids('test_workflow',
+                                 [obj_final.id],
+                                 task_queue=False)
 
-        final_data = {'data': 62}
+        final_data = {u'data': 62}
         objects = BibWorkflowObject.query.filter(
             BibWorkflowObject.id_workflow == workflow.uuid,
             BibWorkflowObject.id_parent == None)  # noqa E711
@@ -289,11 +293,11 @@ distances from it.
                                         id_parent=obj_init.id,
                                         version=CFG_OBJECT_VERSION.RUNNING)
         obj_running._update_db()
-        workflow = run(workflow_name='test_workflow',
-                       data=[{'id': obj_running.id}],
-                       task_queue=False)
+        workflow = start_by_oids('test_workflow',
+                                 [obj_running.id],
+                                 task_queue=False)
 
-        final_data = {'data': 41}
+        final_data = {u'data': 41}
         objects = BibWorkflowObject.query.filter(
             BibWorkflowObject.id_workflow == workflow.uuid,
             BibWorkflowObject.id_parent == None)  # noqa E711
@@ -311,7 +315,7 @@ distances from it.
         # Check copied INITIAL object
         self.assertEqual(obj_init.data, objects[0].data)
 
-        # Check if first object were untached
+        # Check if first object were untuched
         self.assertEqual(obj_init.id_workflow, "11")
         objects = BibWorkflowObject.query.filter(
             BibWorkflowObject.id == obj_running.id)
@@ -328,7 +332,7 @@ distances from it.
         final_data_next = {'data': 9}
 
         # testing restarting from previous task
-        init_workflow = run("test_workflow",
+        init_workflow = start("test_workflow",
                             data=[initial_data],
                             task_queue=False)
 
@@ -350,7 +354,7 @@ distances from it.
         self.assertEqual(all_objects.count(), 2)
 
         # testing restarting from current task
-        init_workflow2 = run(workflow_name="test_workflow",
+        init_workflow2 = start(workflow_name="test_workflow",
                              data=[initial_data],
                              task_queue=False)
 
@@ -370,7 +374,7 @@ distances from it.
         self.assertEqual(all_objects2.count(), 2)
 
         # testing continuing from next task
-        init_workflow3 = run(workflow_name="test_workflow",
+        init_workflow3 = start(workflow_name="test_workflow",
                              data=[initial_data],
                              task_queue=False)
 
@@ -396,13 +400,13 @@ distances from it.
         initial_data = {'data': 1}
 
         # testing restarting from previous task
-        init_workflow = run(workflow_name="test_workflow",
+        init_workflow = start(workflow_name="test_workflow",
                             data=[initial_data],
                             task_queue=False)
         init_objects = BibWorkflowObject.query.filter(
             BibWorkflowObject.id_workflow == init_workflow.uuid)
 
-        restarted_workflow = run_by_wid(init_workflow.uuid, task_queue=False)
+        restarted_workflow = start_by_wid(init_workflow.uuid, task_queue=False)
         restarted_objects = BibWorkflowObject.query.filter(
             BibWorkflowObject.id_workflow == restarted_workflow.uuid)
 
@@ -420,7 +424,7 @@ distances from it.
         initial_data = self.test_data
         final_data = 41
 
-        workflow = run(workflow_name="simplified_data_test_workflow",
+        workflow = start(workflow_name="simplified_data_test_workflow",
                        data=[self.test_data],
                        task_queue=False)
 

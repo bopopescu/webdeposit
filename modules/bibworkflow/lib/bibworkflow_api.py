@@ -42,7 +42,7 @@ if CFG_BIBWORKFLOW_WORKER:
             write(pformat(workers.get_broken_plugins()))
 
 
-def run(workflow_name, data, task_queue=USE_TASK_QUEUE, external_save=None):
+def start(workflow_name, data, task_queue=USE_TASK_QUEUE, external_save=None):
     """
     Runs workflow by given name for specified data. The workflow name is
     considered unique and it is the equal to thename of a file containing
@@ -57,8 +57,7 @@ def run(workflow_name, data, task_queue=USE_TASK_QUEUE, external_save=None):
         return runit(workflow_name, data, external_save=external_save)
 
 
-def run_by_wid(wid, data=None, start_point="beginning",
-               task_queue=USE_TASK_QUEUE, external_save=None):
+def start_by_wid(wid, task_queue=USE_TASK_QUEUE, external_save=None):
     """
     Runs workflow by given workflow id (wid). It can start from beginning,
     prev, next and continue. Data variable can be list of object ids or list of
@@ -67,10 +66,16 @@ def run_by_wid(wid, data=None, start_point="beginning",
     from invenio.bibworkflow_worker_engine import restartit
 
     if task_queue:
-        return WORKER().restart(wid, data, start_point,
-                                external_save=external_save)
+        return WORKER().restart(wid, external_save=external_save)
     else:
         return restartit(wid, external_save=external_save)
+
+
+def start_by_oids(workflow_name, oids, task_queue=USE_TASK_QUEUE, external_save=None):
+    from invenio.bibworkflow_model import BibWorkflowObject
+    objects = BibWorkflowObject.query.filter(BibWorkflowObject.id.in_(list(oids))).all()
+
+    return start(workflow_name, objects, task_queue, external_save)
 
 
 def continue_oid(oid, start_point="beginning",
