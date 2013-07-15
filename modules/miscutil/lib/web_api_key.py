@@ -20,8 +20,25 @@
 """
 Invenio utilities to perform a REST like authentication.
 """
+import re
+
+try:
+    from uuid import uuid4
+except ImportError:
+    import random
+
+    def uuid4():
+        return "%x" % random.getrandbits(16*8)
+
+
+from invenio.config import CFG_WEB_API_KEY_ALLOWED_URL
 from invenio.access_control_config import CFG_WEB_API_KEY_STATUS
 from invenio.web_api_key_model import WebAPIKey
+
+_CFG_WEB_API_KEY_ALLOWED_URL = [(re.compile(_url), _authorized_time,
+                                _need_timestamp)
+                                for _url, _authorized_time, _need_timestamp
+                                in CFG_WEB_API_KEY_ALLOWED_URL]
 
 
 def create_new_web_api_key(uid, key_description=None):
