@@ -100,3 +100,15 @@ def wash_for_js(text):
                                                  escape_script_tag_with_quote=None)
     else:
         return text
+
+def wash_for_json(dirty_json):
+    """Replaces dirty characters from the argument obj(must have a string repr)
+    and returns a json string.
+
+    @param dirty_json: an object with badly formmated string representation.
+    @return: a json string
+    """
+    return str(dirty_json).replace("'", '"').\
+                           replace('\\"', "'").\
+                           replace("\\'", "'").\
+                           replace(': None', ': "null"')
