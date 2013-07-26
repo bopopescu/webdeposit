@@ -18,7 +18,7 @@
 ## 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from wtforms.widgets import html_params, HTMLString
-
+from invenio.jinja2utils import render_template_to_string
 
 def date_widget(field, **kwargs):
     field_id = kwargs.pop('id', field.id)
@@ -32,36 +32,15 @@ def date_widget(field, **kwargs):
 
 def plupload_widget(field, **kwargs):
     field_id = kwargs.pop('id', field.id)
-    # FIXME: Move html code in a template and initialize html variable
-    #        with the render_template_to_string function
-    html = [u' \
-            <div class="pluploader" %s > \
-                <div class="well" id="filebox">\
-                    <div id="drag_and_drop_text" style="text-align:center;z-index:-100;">\
-                        <h1><small>Drag and Drop files here</small></h1>\
-                    </div>\
-                </div> \
-                <table id="file-table" class="table table-striped table-bordered" style="display:none;">\
-                    <thead>\
-                        <tr>\
-                        <th>Filename</th>\
-                        <th>Size</th>\
-                        <th>Status</th>\
-                        <td></td>\
-                        </tr>\
-                    </thead>\
-                    <tbody id="filelist">\
-                    </tbody>\
-                </table>\
-                <a class="btn btn-primary" id="pickfiles" >Select files</a> \
-                <a class="btn btn-success disabled" id="uploadfiles"><i class="icon-upload icon-white"></i> Start upload</a>\
-                <a class="btn btn-danger" id="stopupload"\
-                style="display:none;"><i class="icon-stop icon-white"></i> Cancel upload</a>\
-                <span id="upload_speed" class="pull-right"></span>\
-                <div id="upload-errors"></div>\
-            </div>' % html_params(id=field_id)]
     kwargs['class'] = u'plupload'
-    return HTMLString(u''.join(html))
+
+    return HTMLString(
+        render_template_to_string(
+            "webdeposit_widget_plupload.html",
+            field=field,
+            field_id=field_id,
+        )
+    )
 
 
 def bootstrap_submit(field, **kwargs):

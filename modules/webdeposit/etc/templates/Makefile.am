@@ -17,9 +17,10 @@
 
 templatesdir = $(sysconfdir)/templates
 templates_DATA = \
-		 webdeposit_add.html \
-		 webdeposit_index.html \
-		 webdeposit_index_deposition_types.html
+            webdeposit_add.html \
+            webdeposit_index.html \
+            webdeposit_index_deposition_types.html \
+            webdeposit_widget_plupload.html
 
 EXTRA_DIST = $(templates_DATA)
 
