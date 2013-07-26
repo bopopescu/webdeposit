@@ -33,6 +33,8 @@ class HoldingPenContainer(object):
             self.current = self.final
         elif self.error:
             self.current = self.error
+        else:
+            self.current = self.initial
         self.owner = owner
         self.description = description
         self.ISBN = ISBN

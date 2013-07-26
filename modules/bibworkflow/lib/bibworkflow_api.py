@@ -41,9 +41,6 @@ if CFG_BIBWORKFLOW_WORKER:
     try:
         WORKER = workers.get_enabled_plugins()[CFG_BIBWORKFLOW_WORKER]
     except KeyError:
-        print workers.get_enabled_plugins()
-        print workers.get_broken_plugins()
-        print CFG_BIBWORKFLOW_WORKER, worker_plugin_path, workers
         ## Let's report about broken plugins
         open(os.path.join(CFG_LOGDIR, 'broken-bibworkflow-workers.log'), 'w').\
             write(pformat(workers.get_broken_plugins()))
@@ -248,3 +245,40 @@ def continue_oid_delayed(oid, start_point="continue_next", **kwargs):
     if not CFG_BIBWORKFLOW_WORKER:
         raise InvenioBibWorkflowWorkerUnavailable('No worker configured')
     return WORKER().continue_worker(oid, start_point, **kwargs)
+
+
+def resume_objects_in_workflow(id_workflow, start_point="continue_next",
+                               **kwargs):
+    """
+    Resume workflow for any halted or failed objects from given workflow.
+
+    This is a generator function and will yield every workflow created per
+    object which needs to be resumed.
+
+    To identify the original workflow containing the halted objects,
+    the ID (or UUID) of the workflow is required. The starting point
+    to resume the objects from can optionally be given. By default,
+    the objects resume with their next task in the workflow.
+
+    @param id_workflow: id of Workflow with objects to resume.
+    @type id_workflow: string
+
+    @param start_point: where should the workflow start from? One of:
+        * restart_prev: will restart from the previous task
+        * continue_next: will continue to the next task
+        * restart_task: will restart the current task
+    @type start_point: string
+
+    @yield: BibWorkflowEngine that ran the workflow
+    """
+    from invenio.bibworkflow_model import BibWorkflowObject
+    from invenio.bibworkflow_config import CFG_OBJECT_VERSION
+
+    # Resume workflow if there are objects to resume
+    objects = BibWorkflowObject.query.filter(
+        BibWorkflowObject.id_workflow == id_workflow,
+        BibWorkflowObject.version == CFG_OBJECT_VERSION.HALTED
+    ).all()
+    for obj in objects:
+        yield continue_oid(oid=obj.id, start_point=start_point,
+                           **kwargs)

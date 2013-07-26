@@ -71,11 +71,24 @@ distances from it.
     def tearDown(self):
         """ Clean up created objects """
         from invenio.bibworkflow_model import BibWorkflowObject, Workflow
-        for wid in self.id_workflows:
-            BibWorkflowObject.query.filter(
-                BibWorkflowObject.id_workflow == wid).delete()
-            Workflow.query.filter(Workflow.uuid == wid).delete()
+        from invenio.bibworkflow_utils import get_redis_keys, set_up_redis
+
+        workflows = Workflow.get(Workflow.module_name == "unit_tests").all()
+        for workflow in workflows:
+            db.session.query(BibWorkflowObject).filter(BibWorkflowObject.id_workflow==workflow.uuid).delete()
+        # Deleting dumy object created in tests
+        db.session.query(BibWorkflowObject).filter(BibWorkflowObject.id_workflow.in_([11,123,253])).delete(synchronize_session='fetch')
+        Workflow.get(Workflow.module_name == "unit_tests").delete()
         db.session.commit()
+
+        rs = set_up_redis()
+        keys = get_redis_keys()
+        for key in keys:
+            keys2 = get_redis_keys(key)
+            for key2 in keys2:
+                rs.delete("holdingpen_sort:%s:%s" % (key, key2,))
+            rs.delete("holdingpen_sort:%s" % (key,))
+        rs.delete("holdingpen_sort")
 
     def test_workflow_basic_run(self):
         """Tests running workflow with one data object"""
@@ -85,9 +98,8 @@ distances from it.
         initial_data = self.test_data
         final_data = {'data': 41}
 
-
         workflow = start(workflow_name="test_workflow",
-                         data=[self.test_data])
+                         data=[self.test_data], module_name="unit_tests")
 
         # Keep id for cleanup after
         self.id_workflows.append(workflow.uuid)
@@ -109,11 +121,11 @@ distances from it.
         from invenio.bibworkflow_model import BibWorkflowObject
         from invenio.bibworkflow_api import start
 
-        self.test_data = [{'data': {'data': 1}}, {'data':{'data': "wwww"}}, {'data':{'data': 20}}]
+        self.test_data = [{'data': 1}, {'data': "wwww"}, {'data': 20}]
         final_data = [{'data': 19}, {'data': "wwww"}, {'data': 38}]
 
         workflow = start(workflow_name="test_workflow_2",
-                         data=self.test_data)
+                         data=self.test_data, module_name="unit_tests")
 
         # Keep id for cleanup after
         self.id_workflows.append(workflow.uuid)
@@ -147,7 +159,7 @@ distances from it.
 
         initial_data = {'data': self.recxml, 'type': "text/xml"}
         workflow = start(workflow_name="marcxml_workflow",
-                         data=[initial_data])
+                         data=[initial_data], module_name="unit_tests")
         # Keep id for cleanup after
         self.id_workflows.append(workflow.uuid)
 
@@ -181,7 +193,7 @@ distances from it.
         obj_halted._update_db()
 
         workflow = start_by_oids('test_workflow',
-                                 [obj_halted.id])
+                                 [obj_halted.id], module_name="unit_tests")
 
         final_data = {'data': 2}
         objects = BibWorkflowObject.query.filter(
@@ -221,7 +233,7 @@ distances from it.
         obj_final._update_db()
 
         workflow = start_by_oids('test_workflow',
-                                 [obj_final.id])
+                                 [obj_final.id], module_name="unit_tests")
 
         final_data = {u'data': 62}
         objects = BibWorkflowObject.query.filter(
@@ -292,7 +304,7 @@ distances from it.
         obj_running.set_data(running_data)
         obj_running._update_db()
         workflow = start_by_oids('test_workflow',
-                                 [obj_running.id])
+                                 [obj_running.id], module_name="unit_tests")
 
         final_data = {u'data': 41}
         objects = BibWorkflowObject.query.filter(
@@ -330,14 +342,14 @@ distances from it.
 
         # testing restarting from previous task
         init_workflow = start("test_workflow",
-                              data=[initial_data])
+                              data=[initial_data], module_name="unit_tests")
 
         obj_halted = BibWorkflowObject.query.filter(
             BibWorkflowObject.id_workflow == init_workflow.uuid,
             BibWorkflowObject.version == CFG_OBJECT_VERSION.HALTED).first()
 
         workflow = continue_oid(oid=obj_halted.id,
-                                start_point="restart_prev")
+                                start_point="restart_prev", module_name="unit_tests")
 
         new_object = BibWorkflowObject.query.filter(
             BibWorkflowObject.id == obj_halted.id)
@@ -350,7 +362,7 @@ distances from it.
 
         # testing restarting from current task
         init_workflow2 = start(workflow_name="test_workflow",
-                               data=[initial_data])
+                               data=[initial_data], module_name="unit_tests")
 
         obj_halted2 = BibWorkflowObject.query.filter(
             BibWorkflowObject.id_workflow == init_workflow2.uuid,
@@ -368,13 +380,13 @@ distances from it.
 
         # testing continuing from next task
         init_workflow3 = start(workflow_name="test_workflow",
-                               data=[initial_data])
+                               data=[initial_data], module_name="unit_tests")
 
         obj_halted3 = BibWorkflowObject.query.filter(
             BibWorkflowObject.id_workflow == init_workflow3.uuid,
             BibWorkflowObject.version == CFG_OBJECT_VERSION.HALTED).first()
         workflow3 = continue_oid(oid=obj_halted3.id,
-                                 start_point="continue_next")
+                                 start_point="continue_next", module_name="unit_tests")
         object3 = BibWorkflowObject.query.filter(
             BibWorkflowObject.id == obj_halted3.id)
         self.assertEqual(object3.count(), 1)
@@ -393,11 +405,11 @@ distances from it.
 
         # testing restarting from previous task
         init_workflow = start(workflow_name="test_workflow",
-                              data=[initial_data])
+                              data=[initial_data], module_name="unit_tests")
         init_objects = BibWorkflowObject.query.filter(
             BibWorkflowObject.id_workflow == init_workflow.uuid)
 
-        restarted_workflow = start_by_wid(init_workflow.uuid)
+        restarted_workflow = start_by_wid(wid=init_workflow.uuid, module_name="unit_tests")
         restarted_objects = BibWorkflowObject.query.filter(
             BibWorkflowObject.id_workflow == restarted_workflow.uuid)
 
@@ -416,7 +428,7 @@ distances from it.
         final_data = 41
 
         workflow = start(workflow_name="simplified_data_test_workflow",
-                         data=[self.test_data])
+                         data=[self.test_data], module_name="unit_tests")
 
         # Keep id for cleanup after
         self.id_workflows.append(workflow.uuid)
@@ -431,6 +443,29 @@ distances from it.
         self.assertEqual(all_objects.count(), 2)
         self._check_workflow_execution(objects,
                                        initial_data, final_data)
+
+    def test_redis_for_halted(self):
+        from invenio.bibworkflow_model import BibWorkflowObject
+        from invenio.bibworkflow_api import start
+        from invenio.bibworkflow_utils import get_redis_keys, set_up_redis
+        initial_data = {'data': 1}
+
+        workflow = start(workflow_name="test_workflow",
+                         data=[initial_data], module_name="unit_tests")
+
+        obj = BibWorkflowObject.query.filter(
+            BibWorkflowObject.id_workflow == workflow.uuid,
+            BibWorkflowObject.id_parent != None).one()
+
+        rs = set_up_redis()
+        entry1 = rs.smembers("holdingpen_sort:publisher:Desy")
+        entry2 = rs.smembers("holdingpen_sort:category:lower_than_20")
+
+        self.assertTrue(str(obj.id) in entry1)
+        self.assertTrue(str(obj.id) in entry2)
+
+    def test_redis_for_finished(self):
+        pass
 
     def _check_workflow_execution(self, objects, initial_data, final_data):
         # Let's check that we found anything. There should only be one object

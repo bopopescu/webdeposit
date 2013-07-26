@@ -20,13 +20,16 @@
 
 from invenio.bibworkflow_tasks.test_tasks import task_a, task_b
 
-__all__ = ['test_workflow']
 
-test_workflow = [task_a(1),
-                 task_b,
-                 task_a(1),
-                 task_a(4),
-                 task_a(1),
-                 task_a(1),
-                 task_b,
-                 task_a(13)]
+class test_workflow(object):
+    """
+    Test workflow for unit-tests.
+    """
+    workflow = [task_a(1),
+                task_b,
+                task_a(1),
+                task_a(4),
+                task_a(1),
+                task_a(1),
+                task_b,
+                task_a(13)]

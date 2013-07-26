@@ -22,7 +22,12 @@ from invenio.bibworkflow_tasks.marcxml_tasks import (match_record,
                                                      approve_record,
                                                      convert_record)
 
-__all__ = ['marcxml_workflow']
 
-marcxml_workflow = [convert_record,
-                    match_record]
+class marcxml_workflow(object):
+    """
+    This workflow will run various tasks required to ingesting
+    MARCXML records.
+    """
+    workflow = [convert_record(),
+                match_record]
+    title = "Workflow for ingesting MARCXML records"

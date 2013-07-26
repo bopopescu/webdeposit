@@ -20,13 +20,16 @@
 
 from invenio.bibworkflow_tasks.simplified_data_tasks import task_a, task_b
 
-__all__ = ["simplified_data_test_workflow"]
 
-simplified_data_test_workflow = [task_a(1),
-                                 task_b,
-                                 task_a(1),
-                                 task_a(4),
-                                 task_a(1),
-                                 task_a(1),
-                                 task_b,
-                                 task_a(13)]
+class simplified_data_test_workflow(object):
+    """
+    A simplified test workflow for unit-tests.
+    """
+    workflow = [task_a(1),
+                task_b,
+                task_a(1),
+                task_a(4),
+                task_a(1),
+                task_a(1),
+                task_b,
+                task_a(13)]

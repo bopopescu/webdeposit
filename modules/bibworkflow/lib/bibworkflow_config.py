@@ -25,7 +25,7 @@ from invenio.config import CFG_PYLIBDIR
 def enum(**enums):
     return type('Enum', (), enums)
 
-CFG_WORKFLOW_STATUS = enum(NEW=0, RUNNING=1, HALTED=2, ERROR=3, FINISHED=4)
+CFG_WORKFLOW_STATUS = enum(NEW=0, RUNNING=1, HALTED=2, ERROR=3, FINISHED=4, COMPLETED=5)
 CFG_OBJECT_VERSION = enum(INITIAL=0, FINAL=1, HALTED=2, RUNNING=3)
 CFG_OBJECT_STATUS = enum(ERROR="ERROR - Something went wrong!",
                          RUNNING="RUNNING - Workflow in process",

@@ -22,21 +22,21 @@ def add_data(a):
     """ Task using closure to allow parameters """
     def _add_data(obj, eng):
         """Function task_a docstring"""
-        obj.set_data(datetime.datetime.now())
+        obj.data = datetime.datetime.now()
     return _add_data
 
 
 def check_data(obj, eng):
     """ Static task with no parameters """
-    if obj.get_data() < 5:
+    if obj.data < 5:
         eng.haltProcessing("Value of data is too small.")
 
 
 def print_data(obj, eng):
     """ Static task with no parameters """
-    print obj.get_data() + datetime.timedelta(days=2)
+    print obj.data + datetime.timedelta(days=2)
 
 
 def set_data(obj, eng):
     """ Static task with no parameters """
-    obj.set_data(124)
+    obj.data = 124

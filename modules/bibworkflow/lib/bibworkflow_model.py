@@ -41,7 +41,7 @@ class WorkflowLogging(db.Model):
     id_workflow = db.Column(db.String(255), nullable=False)
     log_type = db.Column(db.Integer, default=0, nullable=False)
     created = db.Column(db.DateTime, default=datetime.now)
-    message = db.Column(db.String(500), default="", nullable=False)
+    message = db.Column(db.TEXT, default="", nullable=False)
     error_msg = db.Column(db.TEXT, default="", nullable=False)
     extra_data = db.Column(db.JSON, default={})
 
@@ -65,7 +65,7 @@ class BibWorkflowObjectLogging(db.Model):
                                      nullable=False)
     log_type = db.Column(db.Integer, default=0, nullable=False)
     created = db.Column(db.DateTime, default=datetime.now)
-    message = db.Column(db.String(500), default="", nullable=False)
+    message = db.Column(db.TEXT, default="", nullable=False)
     error_msg = db.Column(db.TEXT, default="", nullable=False)
     extra_data = db.Column(db.JSON, default={})
 

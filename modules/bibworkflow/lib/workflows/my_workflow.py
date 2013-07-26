@@ -18,7 +18,11 @@
 
 from invenio.bibworkflow_tasks.my_tasks import add_data, print_data
 
-__all__ = ['my_workflow']
 
-my_workflow = [add_data(1),
-               print_data]
+class my_workflow(object):
+    """
+    This is a sample workflow.
+    """
+    workflow = [add_data(1),
+                print_data]
+    title = "Sample workflow"

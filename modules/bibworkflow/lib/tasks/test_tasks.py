@@ -25,38 +25,26 @@ def task_a(a):
     def _task_a(obj, eng):
         """Function task_a docstring"""
         eng.log.info("executing task a " + str(a))
-        data = obj.get_data()
-        data['data'] += a
-        obj.set_data(data)
-        try:
-            if a > 5:
-                obj.extra_data['redis_search']['publisher'] = "CERN"
-            else:
-                obj.extra_data['redis_search']['publisher'] = "Desy"
-        except:
-            pass
-        #obj.add_metadata("foo", "bar")
+        obj.data['data'] += a
+        if a > 5:
+            obj.extra_data['redis_search']['publisher'] = "CERN"
+        else:
+            obj.extra_data['redis_search']['publisher'] = "Desy"
     return _task_a
 
 
 def task_b(obj, eng):
     """Function task_b docstring"""
     eng.log.info("executing task b")
-    if obj.get_data()['data'] < 20:
+    if obj.data['data'] < 20:
         obj.change_status(CFG_OBJECT_STATUS.ERROR)
-        eng.log.info("Object status %s" % (obj.db_obj.status,))
+        eng.log.info("Object status %s" % (obj.status,))
         eng.log.info("data < 20")
         obj.add_task_result("task_b", {'a': 12, 'b': 13, 'c': 14})
-        try:
-            obj.extra_data['redis_search']['category'] = "lower_than_20"
-        except:
-            pass
+        obj.extra_data['redis_search']['category'] = "lower_than_20"
         eng.halt("Value of filed: data in object is too small.")
     else:
-        try:
-            obj.extra_data['redis_search']['category'] = "higher_than_20"
-        except:
-            pass
+        obj.extra_data['redis_search']['category'] = "higher_than_20"
 
 
 def add_metadata():
@@ -75,9 +63,7 @@ def simple_task(times):
         a = times
         eng.log.info("Running simple task %i times" % (times,))
         while a > 0:
-            data = obj.get_data()
-            data['data'] -= 1
-            obj.set_data(data)
+            obj.data['data'] -= 1
             a -= 1
     return _simple_task
 
@@ -92,14 +78,14 @@ def sleep_task(t):
 
 def lower_than_20(obj, eng):
     """Function checks if variable is lower than 20"""
-    if obj.get_data()['data'] < 20:
+    if obj.data['data'] < 20:
         eng.log.info("data < 20")
         eng.halt("Value of filed: a in object is lower than 20.")
 
 
 def higher_than_20(obj, eng):
     """Function checks if variable is higher than 20"""
-    if obj.get_data()['data'] > 20:
+    if obj.data['data'] > 20:
         eng.log.info("data > 20")
         eng.halt("Value of filed: a in object is higher than 20.")
 
@@ -107,16 +93,12 @@ def higher_than_20(obj, eng):
 def add(value):
     def _add(obj, dummy_eng):
         """Function adds value to variable"""
-        data = obj.get_data()
-        data['data'] += value
-        obj.set_data(data)
+        obj.data['data'] += value
     return _add
 
 
 def subtract(value):
     def _subtract(obj, dummy_eng):
         """Function subtract value from variable"""
-        data = obj.get_data()
-        data['data'] -= value
-        obj.set_data(data)
+        obj.data['data'] -= value
     return _subtract

@@ -25,10 +25,13 @@ from invenio.bibworkflow_tasks.test_tasks import \
     sleep_task, \
     simple_task
 
-__all__ = ['test_workflow_2']
 
-test_workflow_2 = [higher_than_20,
-                   add(20),
-                   lower_than_20,
-                   sleep_task(4),
-                   simple_task(2)]
+class test_workflow_2(object):
+    """
+    A second test workflow for unit-tests.
+    """
+    workflow = [higher_than_20,
+                add(20),
+                lower_than_20,
+                sleep_task(4),
+                simple_task(2)]

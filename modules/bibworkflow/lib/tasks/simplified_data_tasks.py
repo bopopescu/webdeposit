@@ -24,17 +24,14 @@ def task_a(a):
     def _task_a(obj, eng):
         """Function task_a docstring"""
         eng.log.info("executing task a " + str(a))
-        data = obj.get_data()
-        data += a
-        obj.set_data(data)
-        #obj.add_metadata("foo", "bar")
+        obj.data += a
     return _task_a
 
 
 def task_b(obj, eng):
     """Function task_b docstring"""
     eng.log.info("executing task b")
-    if obj.get_data() < 20:
+    if obj.data < 20:
         obj.change_status(CFG_OBJECT_STATUS.ERROR)
         eng.log.info("Object status %s" % (obj.db_obj.status,))
         eng.log.info("data < 20")
