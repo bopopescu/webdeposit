@@ -110,17 +110,16 @@ def prepare_objects(data, workflow_object):
                 objects.append(d)
         else:
             new_initial = \
-                BibWorkflowObject(data=d,
-                                  id_workflow=workflow_object.uuid,
+                BibWorkflowObject(id_workflow=workflow_object.uuid,
                                   version=CFG_OBJECT_VERSION.INITIAL
                                   )
+            new_initial.set_data(d)
             new_initial._update_db()
-            objects.append(
-                BibWorkflowObject(data=d,
-                                  id_workflow=workflow_object.uuid,
-                                  version=CFG_OBJECT_VERSION.RUNNING,
-                                  id_parent=new_initial.id
-                                  ))
+            current_obj = BibWorkflowObject(id_workflow=workflow_object.uuid,
+                                            version=CFG_OBJECT_VERSION.RUNNING,
+                                            id_parent=new_initial.id)
+            current_obj.set_data(d)
+            objects.append(current_obj)
 
     return objects
 

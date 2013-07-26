@@ -137,7 +137,7 @@ distances from it.
                             in (CFG_OBJECT_VERSION.FINAL,
                                 CFG_OBJECT_VERSION.HALTED))
             # Making sure the final data is correct
-            self.assertTrue(obj.child_objects[0].data
+            self.assertTrue(obj.child_objects[0].get_data()
                             in final_data)
 
     def test_workflow_recordxml(self):
@@ -169,15 +169,15 @@ distances from it.
         from invenio.bibworkflow_model import BibWorkflowObject
         from invenio.bibworkflow_api import start_by_oids
         initial_data = {'data': 1}
-        obj_init = BibWorkflowObject(data=initial_data,
-                                     id_workflow=123,
+        obj_init = BibWorkflowObject(id_workflow=123,
                                      version=CFG_OBJECT_VERSION.INITIAL)
+        obj_init.set_data(initial_data)
         obj_init._update_db()
         halted_data = {'data': 1}
-        obj_halted = BibWorkflowObject(data=halted_data,
-                                       id_workflow=123,
+        obj_halted = BibWorkflowObject(id_workflow=123,
                                        id_parent=obj_init.id,
                                        version=CFG_OBJECT_VERSION.HALTED)
+        obj_halted.set_data(halted_data)
         obj_halted._update_db()
 
         workflow = start_by_oids('test_workflow',
@@ -198,7 +198,7 @@ distances from it.
                                        final_data)
 
         # Check copied INITIAL object
-        self.assertEqual(obj_halted.data, objects[0].data)
+        self.assertEqual(obj_halted.get_data(), objects[0].get_data())
 
         # Check if first object were untached
         self.assertEqual(obj_init.id_workflow, "123")
@@ -209,15 +209,15 @@ distances from it.
         from invenio.bibworkflow_model import BibWorkflowObject
         from invenio.bibworkflow_api import start_by_oids
         initial_data = {'data': 20}
-        obj_init = BibWorkflowObject(data=initial_data,
-                                     id_workflow=253,
+        obj_init = BibWorkflowObject(id_workflow=253,
                                      version=CFG_OBJECT_VERSION.INITIAL)
+        obj_init.set_data(initial_data)
         obj_init._update_db()
         first_final_data = {u'data': 41}
-        obj_final = BibWorkflowObject(data=first_final_data,
-                                      id_workflow=253,
+        obj_final = BibWorkflowObject(id_workflow=253,
                                       id_parent=obj_init.id,
                                       version=CFG_OBJECT_VERSION.FINAL)
+        obj_final.set_data(first_final_data)
         obj_final._update_db()
 
         workflow = start_by_oids('test_workflow',
@@ -238,7 +238,7 @@ distances from it.
                                        final_data)
 
         # Check copied INITIAL object
-        self.assertEqual(obj_final.data, objects[0].data)
+        self.assertEqual(obj_final.get_data(), objects[0].get_data())
 
         # Check if first object were untached
         self.assertEqual(obj_init.id_workflow, "253")
@@ -251,9 +251,9 @@ distances from it.
         from invenio.bibworkflow_model import BibWorkflowObject
         from invenio.bibworkflow_model import BibWorkflowObjectLogging
         initial_data = {'data': 20}
-        obj_init = BibWorkflowObject(data=initial_data,
-                                     id_workflow=11,
+        obj_init = BibWorkflowObject(id_workflow=11,
                                      version=CFG_OBJECT_VERSION.INITIAL)
+        obj_init.set_data(initial_data)
         obj_init._update_db()
         obj_init.save()
         obj_init.log_info("I am a test object")
@@ -281,15 +281,15 @@ distances from it.
         from invenio.bibworkflow_model import BibWorkflowObject
         from invenio.bibworkflow_api import start_by_oids
         initial_data = {'data': 20}
-        obj_init = BibWorkflowObject(data=initial_data,
-                                     id_workflow=11,
+        obj_init = BibWorkflowObject(id_workflow=11,
                                      version=CFG_OBJECT_VERSION.INITIAL)
+        obj_init.set_data(initial_data)
         obj_init._update_db()
         running_data = {'data': 26}
-        obj_running = BibWorkflowObject(data=running_data,
-                                        id_workflow=11,
+        obj_running = BibWorkflowObject(id_workflow=11,
                                         id_parent=obj_init.id,
                                         version=CFG_OBJECT_VERSION.RUNNING)
+        obj_running.set_data(running_data)
         obj_running._update_db()
         workflow = start_by_oids('test_workflow',
                                  [obj_running.id])
@@ -309,7 +309,7 @@ distances from it.
                                        final_data)
 
         # Check copied INITIAL object
-        self.assertEqual(obj_init.data, objects[0].data)
+        self.assertEqual(obj_init.get_data(), objects[0].get_data())
 
         # Check if first object were untuched
         self.assertEqual(obj_init.id_workflow, "11")
@@ -342,7 +342,7 @@ distances from it.
         new_object = BibWorkflowObject.query.filter(
             BibWorkflowObject.id == obj_halted.id)
         self.assertEqual(new_object.count(), 1)
-        self.assertEqual(new_object[0].data, final_data_prev)
+        self.assertEqual(new_object[0].get_data(), final_data_prev)
 
         all_objects = BibWorkflowObject.query.filter(
             BibWorkflowObject.id_workflow == workflow.uuid)
@@ -360,7 +360,7 @@ distances from it.
         object2 = BibWorkflowObject.query.filter(
             BibWorkflowObject.id == obj_halted2.id)
         self.assertEqual(object2.count(), 1)
-        self.assertEqual(object2[0].data, final_data_curr)
+        self.assertEqual(object2[0].get_data(), final_data_curr)
 
         all_objects2 = BibWorkflowObject.query.filter(
             BibWorkflowObject.id_workflow == workflow2.uuid)
@@ -378,7 +378,7 @@ distances from it.
         object3 = BibWorkflowObject.query.filter(
             BibWorkflowObject.id == obj_halted3.id)
         self.assertEqual(object3.count(), 1)
-        self.assertEqual(object3[0].data, final_data_next)
+        self.assertEqual(object3[0].get_data(), final_data_next)
 
         all_objects3 = BibWorkflowObject.query.filter(
             BibWorkflowObject.id_workflow == workflow3.uuid)
@@ -405,7 +405,7 @@ distances from it.
 
         self.assertEqual(restarted_objects[0].version, init_objects[1].version)
         self.assertEqual(restarted_objects[0].id_parent, init_objects[0].id)
-        self.assertEqual(restarted_objects[0].data, init_objects[1].data)
+        self.assertEqual(restarted_objects[0].get_data(), init_objects[1].get_data())
 
     def test_simplified_data(self):
         """Tests running workflow with simplified data."""
@@ -442,7 +442,7 @@ distances from it.
         self.assertEqual(parent_object.version, CFG_OBJECT_VERSION.INITIAL)
 
         # The object should have the inital data
-        self.assertEqual(parent_object.data, initial_data)
+        self.assertEqual(parent_object.get_data(), initial_data)
 
         # Fetch final object which should exist
         final_object = objects[0].child_objects[0]
@@ -450,7 +450,7 @@ distances from it.
 
         if final_data:
             # Check that final data is correct
-            self.assertEqual(final_object.data, final_data)
+            self.assertEqual(final_object.get_data(), final_data)
 
 
 TEST_SUITE = make_flask_test_suite(TestWorkflowStart)

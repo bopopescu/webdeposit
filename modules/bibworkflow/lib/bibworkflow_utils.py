@@ -33,6 +33,10 @@ from flask import jsonify
 REGEXP_RECORD = re.compile("<record.*?>(.*?)</record>", re.DOTALL)
 
 
+class InvenioWorkflowDefinitionError(Exception):
+    pass
+
+
 def create_objects(path_to_file):
     from invenio.bibworkflow_model import BibWorkflowObject
 
@@ -55,9 +59,12 @@ def create_objects(path_to_file):
 
 
 def get_workflow_definition(name):
-    workflows = PluginContainer(os.path.join(CFG_PYLIBDIR, 'invenio',
-                                'bibworkflow_workflows', '*.py'))
-    return workflows.get_enabled_plugins()[name]().get_definition()
+    from invenio.bibworkflow_load_workflows import workflows
+    if name in workflows:
+        return workflows[name]
+    else:
+        raise InvenioWorkflowDefinitionError("Cannot find workflow %s"
+                                             % (name,))
 
 
 def determineDataType(data):

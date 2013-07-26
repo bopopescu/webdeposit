@@ -18,6 +18,9 @@
 
 """Invenio BibWorkflow config."""
 
+import os
+from invenio.config import CFG_PYLIBDIR
+
 
 def enum(**enums):
     return type('Enum', (), enums)

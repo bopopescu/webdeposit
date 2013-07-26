@@ -16,14 +16,9 @@
 ## along with Invenio; if not, write to the Free Software Foundation, Inc.,
 ## 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-from invenio.bibworkflow_tasks.my_tasks import add_data, check_data
-from invenio.bibworkflow_workflow_definition import WorkflowDefinition
+from invenio.bibworkflow_tasks.my_tasks import add_data, print_data
 
+__all__ = ['my_workflow']
 
-class my_workflow(WorkflowDefinition):
-    def __init__(self):
-        super(my_workflow, self).__init__()
-        self.definition = [
-            add_data(1),
-            check_data
-        ]
+my_workflow = [add_data(1),
+               print_data]

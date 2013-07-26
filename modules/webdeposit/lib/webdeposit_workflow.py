@@ -19,7 +19,8 @@
 
 from invenio.bibworkflow_engine import BibWorkflowEngine
 from invenio.bibworkflow_model import Workflow, BibWorkflowObject
-from invenio.bibworkflow_client import restart_workflow
+from invenio.bibworkflow_client import continue_execution
+from invenio.bibworkflow_api import continue_oid
 from invenio.bibfield_jsonreader import JsonReader
 from uuid import uuid1 as new_uuid
 
@@ -45,12 +46,20 @@ class DepositionWorkflow(object):
 
         self.obj = {}
         self.set_user_id(user_id)
-        self.set_uuid(uuid)
-
         self.deposition_type = deposition_type
-
         self.current_step = 0
-        self.set_engine(engine)
+
+        if uuid is None:
+            # We need a new uuid from BibWorkflowEngine for a new
+            # workflow
+            self.uuid = None
+            self.set_engine(engine)
+            self.set_uuid(self.eng.uuid)
+        else:
+            # We know a uuid for a BibWorkflowEngine and we can resume
+            self.set_uuid(uuid)
+            self.set_engine(engine)
+
         self.set_workflow(workflow)
         self.set_object()
 
@@ -68,6 +77,7 @@ class DepositionWorkflow(object):
     def set_engine(self, engine=None):
         """ Initializes the BibWorkflow engine """
         if engine is None:
+            print self.get_uuid()
             engine = BibWorkflowEngine(name=self.get_deposition_type(),
                                        uuid=self.get_uuid(),
                                        user_id=self.get_user_id(),
@@ -93,13 +103,15 @@ class DepositionWorkflow(object):
             self.db_workflow_obj = None
 
         if self.db_workflow_obj is None:
+            print "Creating object for %r" % (self.get_uuid(),)
             self.bib_obj = BibWorkflowObject(data=self.obj,
-                                             workflow_id=self.get_uuid(),
-                                             user_id=self.get_user_id())
+                                             id_workflow=self.get_uuid(),
+                                             id_user=self.get_user_id())
+            self.bib_obj.save()
         else:
-            self.bib_obj = BibWorkflowObject(wfobject_id=self.db_workflow_obj.id,
-                                             workflow_id=self.get_uuid(),
-                                             user_id=self.get_user_id())
+            self.bib_obj = BibWorkflowObject(id=self.db_workflow_obj.id,
+                                             id_workflow=self.get_uuid(),
+                                             id_user=self.get_user_id())
 
     def get_object(self):
         return self.bib_obj
@@ -182,13 +194,7 @@ class DepositionWorkflow(object):
         if finished:
             # The workflow is finished, nothing to do
             return
-        wfobjects = \
-            WfeObject.query. \
-            filter(WfeObject.workflow_id == self.get_uuid())
-        wfobject = max(wfobjects.all(), key=lambda w: w.modified)
-        starting_point = wfobject.task_counter
-        restart_workflow(self.eng, [self.bib_obj],
-                         starting_point, stop_on_halt=True)
+        continue_oid(oid=self.bib_obj.id)
 
     def run_next_step(self):
         if self.current_step >= self.steps_num:
@@ -200,7 +206,7 @@ class DepositionWorkflow(object):
         self.obj['step'] = self.current_step
 
     def jump_forward(self):
-        restart_workflow(self.eng, [self.bib_obj], 'next', stop_on_halt=True)
+        continue_oid(oid=self.bib_obj.id)
 
     def jump_backwards(self, dummy_synchronize=False):
         if self.current_step > 1:
@@ -227,3 +233,9 @@ class DepositionWorkflow(object):
                 pass
 
         return json_reader
+
+    def get_data(self, key):
+        if key in self.bib_obj.data:
+            return self.bib_obj.data[key]
+        else:
+            return None

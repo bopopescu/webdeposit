@@ -21,11 +21,8 @@
 from invenio.bibworkflow_tasks.marcxml_tasks import (match_record,
                                                      approve_record,
                                                      convert_record)
-from invenio.bibworkflow_workflow_definition import WorkflowDefinition
 
+__all__ = ['marcxml_workflow']
 
-class marcxml_workflow(WorkflowDefinition):
-    def __init__(self):
-        super(marcxml_workflow, self).__init__()
-        self.definition = [convert_record,
-                           match_record]
+marcxml_workflow = [convert_record,
+                    match_record]

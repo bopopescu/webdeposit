@@ -187,7 +187,7 @@ def get_latest_or_new_workflow(deposition_type, user_id=None):
 
     # Create a new workflow
     # based on the latest draft's uuid
-    uuid = latest_workflow. uuid
+    uuid = latest_workflow.uuid
     return DepositionWorkflow(deposition_type=deposition_type,
                               workflow=wf, uuid=uuid)
 
@@ -219,6 +219,7 @@ def create_workflow(deposition_type, user_id=None):
         wf = deposition_metadata[deposition_type]["workflow"]
     except KeyError:
         # deposition type not found
+        print "no workflow found"
         return None
 
     return DepositionWorkflow(deposition_type=deposition_type,

@@ -19,17 +19,14 @@
 """ Implements a workflow for testing """
 
 from invenio.bibworkflow_tasks.simplified_data_tasks import task_a, task_b
-from invenio.bibworkflow_workflow_definition import WorkflowDefinition
 
+__all__ = ["simplified_data_test_workflow"]
 
-class simplified_data_test_workflow(WorkflowDefinition):
-    def __init__(self):
-        super(simplified_data_test_workflow, self).__init__()
-        self.definition = [task_a(1),
-                           task_b,
-                           task_a(1),
-                           task_a(4),
-                           task_a(1),
-                           task_a(1),
-                           task_b,
-                           task_a(13)]
+simplified_data_test_workflow = [task_a(1),
+                                 task_b,
+                                 task_a(1),
+                                 task_a(4),
+                                 task_a(1),
+                                 task_a(1),
+                                 task_b,
+                                 task_a(13)]

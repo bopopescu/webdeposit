@@ -364,4 +364,4 @@ BibWorkflowEngine
 
     def set_extra_data_params(self, **kwargs):
         for key, value in kwargs.iteritems():
-            self.extra_data['key']=value
+            self.extra_data[key] = value

@@ -83,7 +83,7 @@ def continue_execution(wfe, data, restart_point="restart_task",
     if HaltProcessing is raised.
     """
     wfe.log_info("Continue execution from: " + str(restart_point))
-    pos = data[0].getCurrentTask()
+    pos = data[0].get_current_task()
 
     if restart_point == "restart_prev":
         pos[-1] = pos[-1] - 1
