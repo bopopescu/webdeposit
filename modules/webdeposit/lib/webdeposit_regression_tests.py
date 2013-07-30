@@ -63,17 +63,16 @@ class TestWebDepositUtils(InvenioTestCase):
             assert str(workflow2.uuid) == str(workflow.uuid)
 
             # and also retrieved with its uuid
-            workflow = get_workflow(deposition_type, workflow.uuid)
+            workflow = get_workflow(workflow.uuid, deposition_type)
             assert workflow is not None
 
         # Test get_workflow function with random arguments
-        workflow = get_workflow('deposition_type_that_doesnt_exist',
-                                'some_uuid')
+        workflow = get_workflow('some_uuid',
+                                'deposition_type_that_doesnt_exist')
         assert workflow is None
 
         deposition_type = deposition_metadata.keys()[-1]
-        workflow = get_workflow(deposition_type,
-                                'some_uuid_that_doesnt_exist')
+        workflow = get_workflow('some_uuid_that_doesnt_exist', deposition_type)
         assert workflow is None
 
         # Create workflow without using webdeposit_utils
@@ -82,7 +81,7 @@ class TestWebDepositUtils(InvenioTestCase):
                                       workflow=wf, user_id=1)
 
         # Test that the retrieved workflow is the same and not None
-        workflow2 = get_workflow(deposition_type, workflow.get_uuid())
+        workflow2 = get_workflow(workflow.get_uuid(), deposition_type)
         assert workflow2 is not None
         assert workflow2.get_uuid() == workflow.get_uuid()
 
@@ -92,7 +91,7 @@ class TestWebDepositUtils(InvenioTestCase):
 
         uuid = workflow.get_uuid()
         delete_workflow(1, uuid)
-        workflow = get_workflow(deposition_type, uuid)
+        workflow = get_workflow(uuid, deposition_type)
         assert workflow is None
 
     def test_form_functions(self):
@@ -212,13 +211,12 @@ class TestWebDepositUtils(InvenioTestCase):
         from sqlalchemy import func
         from datetime import datetime
         from invenio.bibworkflow_model import Workflow
-        from invenio.sqlalchemyutils import db
         from invenio.webdeposit_load_deposition_types import \
             deposition_metadata
         from invenio.bibworkflow_config import CFG_WORKFLOW_STATUS
         from invenio.bibsched_model import SchTASK
         from invenio.webdeposit_utils import get_current_form, \
-            create_workflow, set_form_status, CFG_DRAFT_STATUS, draft_setter
+            create_workflow, set_form_status, CFG_DRAFT_STATUS
         from invenio.webuser_flask import login_user
         from invenio.webdeposit_workflow_utils import \
             create_record_from_marc

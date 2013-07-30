@@ -40,6 +40,7 @@ import shutil
 from flask import request
 from glob import iglob
 from werkzeug.utils import secure_filename
+from werkzeug.exceptions import BadRequestKeyError
 from datetime import datetime
 from wtforms import FormField
 from sqlalchemy.orm.exc import NoResultFound
@@ -55,6 +56,7 @@ from invenio.webdeposit_load_forms import forms
 from invenio.webuser_flask import current_user
 from invenio.webdeposit_load_deposition_types import deposition_metadata
 from invenio.webdeposit_workflow import DepositionWorkflow
+from invenio.webdeposit_workflow_utils import render_form
 from invenio.config import CFG_WEBDEPOSIT_UPLOAD_FOLDER
 
 
@@ -71,19 +73,26 @@ def draft_getter(step=None):
     """Returns a json with the current form values.
     If step is None, the latest draft is returned."""
     def draft_getter_func(json):
-        if step is None:
-            return json['drafts'][max(json['drafts'])]
-        else:
-            try:
-                return json['drafts'][step]
-            except KeyError:
-                pass
+        try:
+            if step is None:
+                return json['drafts'][max(json['drafts'])]
+            else:
+                try:
+                    return json['drafts'][step]
+                except KeyError:
+                    pass
 
+                try:
+                    return json['drafts'][unicode(step)]
+                except KeyError:
+                    pass
+                raise NoResultFound
+        except KeyError:
             try:
-                return json['drafts'][unicode(step)]
+                return {'timestamp': json['pop_obj']['timestamp']}
             except KeyError:
-                pass
-            raise NoResultFound
+                # there is no pop object
+                return None
     return draft_getter_func
 
 
@@ -92,10 +101,14 @@ def draft_setter(step=None, key=None, value=None, field_setter=False):
     If the field_setter is true, it uses the key value to update
     the dictionary `form_values`"""
     def draft_setter_func(json):
-        if step is None:
-            draft = json['drafts'][max(json['drafts'])]
-        else:
-            draft = json['drafts'][step]
+        try:
+            if step is None:
+                draft = json['drafts'][max(json['drafts'])]
+            else:
+                draft = json['drafts'][step]
+        except (ValueError, KeyError) as e:
+            # There are no drafts or they are empty
+            return
 
         if field_setter:
             draft['form_values'][key] = value
@@ -120,7 +133,11 @@ def add_draft(draft):
 
 def draft_field_list_setter(field_name, value):
     def setter(json):
-        draft = json['drafts'][max(json['drafts'])]
+        try:
+            draft = json['drafts'][max(json['drafts'])]
+        except (ValueError, KeyError) as e:
+            # There are no drafts or they are empty
+            return
         values = draft['form_values']
         try:
             if isinstance(values[field_name], list):
@@ -133,10 +150,10 @@ def draft_field_list_setter(field_name, value):
             values[field_name] = [value]
 
         draft['timestamp'] = str(datetime.now())
-
     return setter
 
 """ Workflow functions  """
+
 
 def get_latest_or_new_workflow(deposition_type, user_id=None):
     """ Creates new workflow or returns a new one """
@@ -159,22 +176,26 @@ def get_latest_or_new_workflow(deposition_type, user_id=None):
 
     # Create a new workflow
     # based on the latest draft's uuid
-    uuid = latest_workflow .uuid
+    uuid = latest_workflow. uuid
     return DepositionWorkflow(deposition_type=deposition_type,
                               workflow=wf, uuid=uuid)
 
 
-def get_workflow(deposition_type, uuid):
+def get_workflow(uuid, deposition_type=None):
     """ Returns a workflow instance with uuid=uuid or None """
+
+    # Check if uuid exists first and get the deposition_type if None
+    try:
+        workflow = Workflow.get(uuid=uuid).one()
+        if deposition_type is None:
+            deposition_type = workflow.name
+    except NoResultFound:
+        return None
+
     try:
         wf = deposition_metadata[deposition_type]["workflow"]
     except KeyError:
         # deposition type not found
-        return None
-    # Check if uuid exists first
-    try:
-        Workflow.get(uuid=uuid).one()
-    except NoResultFound:
         return None
     return DepositionWorkflow(uuid=uuid,
                               deposition_type=deposition_type,
@@ -411,7 +432,6 @@ def draft_field_list_add(user_id, uuid, field_name, value,
 
     Workflow.set_extra_data(user_id=user_id, uuid=uuid,
                             setter=draft_field_list_setter(field_name, value))
-    return
 
 
 def preingest_form_data(user_id, form_data, uuid=None,
@@ -419,7 +439,7 @@ def preingest_form_data(user_id, form_data, uuid=None,
     """Used to insert form data to the workflow before running it
     Creates an identical json structure to the draft json.
     If cached_data is enabled, the data will be used by the next workflow
-    initiated by the user.
+    initiated by the user, so the uuid can be ommited in this case.
 
     @param user_id: the user id
 
@@ -432,7 +452,7 @@ def preingest_form_data(user_id, form_data, uuid=None,
 
     @param cached_data: set to True if you want to cache the data.
     """
-    def preingest_data(form_data):
+    def preingest_data(form_data, append):
         def preingest(json):
             if 'pop_obj' not in json:
                 json['pop_obj'] = {}
@@ -449,13 +469,22 @@ def preingest_form_data(user_id, form_data, uuid=None,
                         json['pop_obj'][field] = [value]
                 else:
                     json['pop_obj'][field] = value
+            json['pop_obj']['timestamp'] = str(datetime.now())
         return preingest
 
     if cached_data:
         cache.set(str(user_id) + ':cached_form_data', form_data)
     else:
         Workflow.set_extra_data(user_id=user_id, uuid=uuid,
-                                setter=preingest_data(form_data))
+                                setter=preingest_data(form_data, append))
+
+        # Ingest the data in the forms, in case there are any
+        if append:
+            for field_name, value in form_data.items():
+                draft_field_list_add(user_id, uuid, field_name, value)
+        else:
+            for field_name, value in form_data.items():
+                draft_field_set(user_id, uuid, field_name, value)
 
 
 def get_preingested_form_data(user_id, uuid=None, key=None, cached_data=False):
@@ -474,6 +503,37 @@ def get_preingested_form_data(user_id, uuid=None, key=None, cached_data=False):
         return cache.get(str(user_id) + ':cached_form_data')
     return Workflow.get_extra_data(user_id, uuid=uuid,
                                    getter=get_preingested_data(key))
+
+
+def validate_preingested_data(user_id, uuid, deposition_type=None):
+    """Validates all preingested data by trying to match the json with every
+    form. Then the validation function is being called for each form.
+    """
+    form_data = get_preingested_form_data(user_id, uuid)
+
+    deposition = get_workflow(uuid, deposition_type)
+
+
+    form_types = []
+    # Get all form types from workflow
+    for fun in deposition.workflow:
+        if '__form_type__' in fun.__dict__:
+            form_render = render_form(forms[fun.__form_type__])
+            if form_render.func_code == fun.func_code:
+                form_types.append(fun.__form_type__)
+
+    errors = {}
+    for form_type in form_types:
+        form = forms[form_type]()
+        for field in form:
+            if field.name in form_data:
+                field.data = form_data.pop(field.name)
+
+        form.validate()
+
+        errors.update(form.errors)
+
+    return errors
 
 
 def get_all_drafts(user_id):
@@ -541,7 +601,8 @@ def draft_field_get_all(user_id, deposition_type):
 
     for workflow in workflows:
         max_draft = get_max_draft(workflow.extra_data)
-        drafts.append(Draft(max_draft, workflow))
+        if max_draft is not None:
+            drafts.append(Draft(max_draft, workflow))
 
     return drafts
 
@@ -641,9 +702,12 @@ def deposit_files(user_id, deposition_type, uuid, preingest=False):
         except KeyError:
             chunks = None
             pass
-        name = request.form['name']
-        current_chunk = request.files['file']
 
+        current_chunk = request.files['file']
+        try:
+            name = request.form['name']
+        except BadRequestKeyError:
+            name = current_chunk.filename
         try:
             filename = secure_filename(name) + "_" + chunk
         except UnboundLocalError:
@@ -664,8 +728,13 @@ def deposit_files(user_id, deposition_type, uuid, preingest=False):
             file_path = os.path.join(CFG_USER_WEBDEPOSIT_FOLDER,
                                      unique_filename)
             os.rename(old_path, file_path)  # Rename the chunk
-            size = os.path.getsize(file_path)
-            file_metadata = dict(name=name, file=file_path, size=size)
+            if current_chunk.content_length != 0:
+                size = current_chunk.content_length
+            else:
+                size = os.path.getsize(file_path)
+            content_type = current_chunk.content_type or ''
+            file_metadata = dict(name=name, file=file_path,
+                                 content_type=content_type, size=size)
             if preingest:
                 preingest_form_data(user_id, uuid, {'files': file_metadata})
             else:
@@ -694,7 +763,8 @@ def deposit_files(user_id, deposition_type, uuid, preingest=False):
             size = os.path.getsize(file_path)
             file_metadata = dict(name=name, file=file_path, size=size)
             if preingest:
-                preingest_form_data(user_id, uuid, {'files': file_metadata})
+                preingest_form_data(user_id, uuid, {'files': file_metadata},
+                                    append=True)
             else:
                 draft_field_list_add(user_id, uuid,
                                      "files", file_metadata)

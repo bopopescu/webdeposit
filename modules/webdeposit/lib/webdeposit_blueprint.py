@@ -20,9 +20,7 @@
 """WebDeposit Flask Blueprint"""
 
 import os
-import shutil
 
-from glob import iglob
 from flask import current_app, \
     render_template, \
     request, \
@@ -279,7 +277,7 @@ def add(deposition_type, uuid):
                                 uuid=uuid))
     else:
         # get workflow with specific uuid
-        workflow = get_workflow(deposition_type, uuid)
+        workflow = get_workflow(uuid, deposition_type)
         if workflow is None:
             flash(_('Deposition with uuid `') + uuid + '` not found.', 'error')
             return redirect(url_for('.index_deposition_types'))
