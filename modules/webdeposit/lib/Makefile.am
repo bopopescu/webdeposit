@@ -37,7 +37,8 @@ pylib_DATA = __init__.py \
              webdeposit_utils.py \
              webdeposit_validation_utils.py \
              webdeposit_workflow.py \
-             webdeposit_workflow_utils.py
+             webdeposit_workflow_utils.py \
+			 webdeposit_api_regression_tests.py
 
 jsdir=$(localstatedir)/www/js
 
