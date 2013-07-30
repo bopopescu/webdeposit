@@ -54,7 +54,7 @@ def authorize_user(user_id=None):
 def render_form(form):
     def render(obj, eng):
         from invenio.webdeposit_utils import get_last_step, CFG_DRAFT_STATUS, \
-            decode_dict_from_unicode, add_draft
+            add_draft,  get_preingested_form_data, preingest_form_data
 
         uuid = eng.uuid
         user_id = obj.data['user_id']
@@ -63,8 +63,17 @@ def render_form(form):
         step = get_last_step(eng.getCurrTaskId())
         form_type = form.__name__
 
+        # Prefill the form from cache
+        cached_form = get_preingested_form_data(user_id, cached_data=True)
+        if cached_form is not None:
+            form_values = cached_form
+            # Clear cache
+            preingest_form_data(user_id, None, cached_data=True)
+        else:
+            form_values = {}
+
         draft = dict(form_type=form_type,
-                     form_values={},
+                     form_values=form_values,
                      status=CFG_DRAFT_STATUS['unfinished'],
                      timestamp=str(datetime.now()),
                      step=step)

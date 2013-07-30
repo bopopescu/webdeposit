@@ -46,6 +46,7 @@ from sqlalchemy.orm.exc import NoResultFound
 from uuid import uuid1 as new_uuid
 from urllib2 import urlopen, URLError
 
+from invenio.cache import cache
 from invenio.sqlalchemyutils import db
 from invenio.webdeposit_model import WebDepositDraft
 from invenio.bibworkflow_model import Workflow
@@ -413,9 +414,12 @@ def draft_field_list_add(user_id, uuid, field_name, value,
     return
 
 
-def preingest_form_data(user_id, uuid, form_data, append=False):
+def preingest_form_data(user_id, form_data, uuid=None,
+                        append=False, cached_data=False):
     """Used to insert form data to the workflow before running it
-    Creates an identical json structure to the draft json
+    Creates an identical json structure to the draft json.
+    If cached_data is enabled, the data will be used by the next workflow
+    initiated by the user.
 
     @param user_id: the user id
 
@@ -425,6 +429,8 @@ def preingest_form_data(user_id, uuid, form_data, append=False):
 
     @param append: set to True if you want to append the values to the existing
                    ones
+
+    @param cached_data: set to True if you want to cache the data.
     """
     def preingest_data(form_data):
         def preingest(json):
@@ -445,11 +451,14 @@ def preingest_form_data(user_id, uuid, form_data, append=False):
                     json['pop_obj'][field] = value
         return preingest
 
-    Workflow.set_extra_data(user_id=user_id, uuid=uuid,
-                            setter=preingest_data(form_data))
+    if cached_data:
+        cache.set(str(user_id) + ':cached_form_data', form_data)
+    else:
+        Workflow.set_extra_data(user_id=user_id, uuid=uuid,
+                                setter=preingest_data(form_data))
 
 
-def get_preingested_form_data(user_id, uuid, key=None):
+def get_preingested_form_data(user_id, uuid=None, key=None, cached_data=False):
     def get_preingested_data(key):
         def getter(json):
             if 'pop_obj' in json:
@@ -460,6 +469,9 @@ def get_preingested_form_data(user_id, uuid, key=None):
             else:
                 return {}
         return getter
+
+    if cached_data:
+        return cache.get(str(user_id) + ':cached_form_data')
     return Workflow.get_extra_data(user_id, uuid=uuid,
                                    getter=get_preingested_data(key))
 
