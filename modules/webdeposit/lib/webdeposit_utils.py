@@ -41,8 +41,8 @@ from flask import request
 from glob import iglob
 from werkzeug.utils import secure_filename
 from werkzeug.exceptions import BadRequestKeyError
+from werkzeug import MultiDict
 from datetime import datetime
-from wtforms import FormField
 from sqlalchemy.orm.exc import NoResultFound
 from uuid import uuid1 as new_uuid
 from urllib2 import urlopen, URLError
@@ -53,6 +53,7 @@ from invenio.webdeposit_model import WebDepositDraft
 from invenio.bibworkflow_model import Workflow
 from invenio.bibworkflow_config import CFG_WORKFLOW_STATUS
 from invenio.webdeposit_load_forms import forms
+from invenio.webdeposit_form import CFG_FIELD_FLAGS
 from invenio.webuser_flask import current_user
 from invenio.webdeposit_load_deposition_types import deposition_metadata
 from invenio.webdeposit_workflow import DepositionWorkflow
@@ -66,8 +67,9 @@ CFG_DRAFT_STATUS = {
 }
 
 
-""" Setters/Getters for bibworklflow """
-
+#
+# Setters/Getters for bibworklflow
+#
 
 def draft_getter(step=None):
     """Returns a json with the current form values.
@@ -96,10 +98,10 @@ def draft_getter(step=None):
     return draft_getter_func
 
 
-def draft_setter(step=None, key=None, value=None, field_setter=False):
+def draft_setter(step=None, key=None, value=None, data=None, field_setter=False):
     """Alters a draft's specified value.
     If the field_setter is true, it uses the key value to update
-    the dictionary `form_values`"""
+    the dictionary `form_values` otherwise it updates the draft."""
     def draft_setter_func(json):
         try:
             if step is None:
@@ -110,10 +112,17 @@ def draft_setter(step=None, key=None, value=None, field_setter=False):
             # There are no drafts or they are empty
             return
 
-        if field_setter:
-            draft['form_values'][key] = value
-        else:
-            draft[key] = value
+        if key:
+            if field_setter:
+                draft['form_values'][key] = value
+            else:
+                draft[key] = value
+
+        if data:
+            if field_setter:
+                draft['form_values'].update(data)
+            else:
+                draft.update(data)
 
         draft['timestamp'] = str(datetime.now())
     return draft_setter_func
@@ -152,9 +161,9 @@ def draft_field_list_setter(field_name, value):
         draft['timestamp'] = str(datetime.now())
     return setter
 
-""" Workflow functions  """
-
-
+#
+# Workflow functions
+#
 def get_latest_or_new_workflow(deposition_type, user_id=None):
     """ Creates new workflow or returns a new one """
 
@@ -214,68 +223,34 @@ def create_workflow(deposition_type, user_id=None):
                               workflow=wf, user_id=user_id)
 
 
-def delete_workflow(user_id, uuid):
+def delete_workflow(dummy_user_id, uuid):
     """ Deletes all workflow related data
         (workflow and drafts)
     """
-
     Workflow.delete(uuid=uuid)
 
 
-def get_current_form(user_id, deposition_type=None, uuid=None):
-    """Returns the latest draft(wtform object) of the deposition_type
-    or the form with the specific uuid.
-    if it doesn't exist, creates a new one
+#
+# Form loading and saving functions
+#
+def get_form(user_id, uuid, step=None, formdata=None, validate_draft=False):
     """
+    Returns the current state of the workflow in a form or a previous
+    state (step)
 
-    if user_id is None:
-        return None
+    @param user_id:
 
-    try:
-        if uuid is not None:
-            # get the draft with the max step, the latest
-            try:
-                webdeposit_draft = \
-                    Workflow.get_extra_data(user_id=user_id,
-                                            uuid=uuid,
-                                            getter=draft_getter())
-            except ValueError:
-                # No drafts found
-                raise NoResultFound
-        else:
-            raise NoResultFound
-    except NoResultFound:
-        # No Form draft was found
-        return None, None
+    @param uuid:
 
-    form = forms[webdeposit_draft['form_type']]()
-    draft_data = webdeposit_draft['form_values']
+    @param step:
 
-    for field_name in form.data.keys():
-        if isinstance(form._fields[field_name], FormField) \
-                and field_name in draft_data:
-            subfield_names = \
-                form._fields[field_name]. \
-                form._fields.keys()
-            #upperfield_name, subfield_name = field_name.split('-')
-            for subfield_name in subfield_names:
-                if subfield_name in draft_data[field_name]:
-                    form._fields[field_name].\
-                        form._fields[subfield_name]. \
-                        process_data(draft_data[field_name][subfield_name])
-        elif field_name in draft_data:
-            form[field_name].process_data(draft_data[field_name])
-
-    return uuid, form
-
-
-def get_form(user_id, uuid, step=None):
-    """ Returns the current state of the workflow in a form
-        or a previous state (step)
+    @param formdata:
+        Dictionary of formdata.
+    @param validate_draft:
+        If draft data exists, and no formdata is provided, the form will be
+        validated if this parameter is set to true.
     """
-
-    #FIXME: merge with get_current_form
-
+    # Get draft data
     try:
         webdeposit_draft = \
             Workflow.get_extra_data(user_id=user_id,
@@ -285,25 +260,26 @@ def get_form(user_id, uuid, step=None):
         # No drafts found
         return None
 
-    form = forms[webdeposit_draft['form_type']]()
-
+    # If a field is not present in formdata, Form.process() will assume it is
+    # blank instead of using the draft_data value. Most of the time we are only
+    # submitting a single field in JSON via AJAX requests. We therefore reset
+    # non-submitted fields to the draft_data value.
     draft_data = webdeposit_draft['form_values']
+    if formdata:
+        formdata = MultiDict(formdata)
+    form = forms[webdeposit_draft['form_type']](formdata=formdata, **draft_data)
+    if formdata:
+        form.reset_field_data(exclude=formdata.keys())
 
-    for field_name in form.data.keys():
-        if isinstance(form._fields[field_name], FormField) \
-                and field_name in draft_data:
-            subfield_names = \
-                form._fields[field_name].\
-                form.fields.keys()
-            #upperfield_name, subfield_name = field_name.split('-')
-            for subfield_name in subfield_names:
-                if subfield_name in draft_data[field_name]:
-                    form._fields[field_name].\
-                        form._fields[subfield_name].\
-                        process_data(draft_data[field_name][subfield_name])
-        elif field_name in draft_data:
-            form[field_name].process_data(draft_data[field_name])
+    # Set field flags
+    for name, flags in webdeposit_draft.get('form_field_flags',{}).items():
+        for check_flags in CFG_FIELD_FLAGS:
+            if check_flags in flags:
+                setattr(form[name].flags, check_flags, True)
+            else:
+                setattr(form[name].flags, check_flags, False)
 
+    # Process files
     if 'files' in draft_data:
         # FIXME: sql alchemy(0.8.0) returns the value from the
         #        column form_values with keys and values in unicode.
@@ -323,7 +299,27 @@ def get_form(user_id, uuid, step=None):
         form.__setattr__('files', draft_data['files'])
     else:
         form.__setattr__('files', {})
+
+    if validate_draft:
+        form.validate()
+
     return form
+
+
+def save_form(user_id, uuid, form):
+    """
+    Saves the draft form_values and form_field_flags of a form.
+    """
+    draft_data_update = {
+        'form_values': form.json_data,
+        'form_field_flags': form.flags,
+    }
+
+    Workflow.set_extra_data(
+        user_id=user_id,
+        uuid=uuid,
+        setter=draft_setter(data=draft_data_update)
+    )
 
 
 def get_form_status(user_id, uuid, step=None):
@@ -388,22 +384,69 @@ def draft_field_get(user_id, uuid, field_name, subfield_name=None):
         return None
 
 
-def draft_field_error_check(user_id, uuid, field_name, value):
-    """ Retrieves the form based on the uuid
-        and returns a json string evaluating the field's value
+def draft_form_autocomplete(user_id, uuid, field, term, limit):
     """
+    Auto-complete field value
+    """
+    form = get_form(user_id, uuid=uuid, formdata={field: term})
+    form.validate()
+    return form.autocomplete(field, limit=limit)
 
-    form = get_form(user_id, uuid=uuid)
 
-    subfield_name = None
-    if '-' in field_name:  # check if its subfield
-        field_name, subfield_name = field_name.split('-')
+def draft_form_process_and_validate(user_id, uuid, data):
+    """
+    Process, validate and store incoming form data and return response.
+    """
+    # The form is initialized with form and draft data. The original draft_data
+    # is accessible in Field.object_data, Field.raw_data is the new form data
+    # and Field.data is the processed form data or the original draft data.
+    #
+    # Behind the scences, Form.process() is called, which in turns call
+    # Field.process_data(), Field.process_formdata() and any filters defined.
+    #
+    # Field.object_data contains the value of process_data(), while Field.data
+    # contains the value of process_formdata() and any filters applied.
+    form = get_form(user_id, uuid=uuid, formdata=data)
 
-        form = form._fields[field_name].form
-        field_name = subfield_name
+    # Run form validation which will call Field.pre_valiate(), Field.validators,
+    # Form.validate_<field>() and Field.post_validate(). Afterwards Field.data
+    # has been validated and any errors will be present in Field.errors.
+    form.validate()
 
-    form._fields[field_name].process_data(value)
-    return form._fields[field_name].pre_validate(form)
+    # Call Form.run_processors() which in turn will call Field.run_processors()
+    # that allow fields to set flags (hide/show) and values of other fields
+    # after the entire formdata has been processed and validated.
+    validated_flags, validated_data = (form.flags, form.data)
+    form.post_process(fields=data.keys())
+    post_processed_flags, post_processed_data = (form.flags, form.data)
+
+    # Save draft data
+    save_form(user_id, uuid, form)
+
+    ### Build result dictionary
+    process_field_names = data.keys()
+    # Determine if some fields where changed during post-processing.
+    changed_values = dict((name, value) for name, value in post_processed_data.items() if validated_data[name] != value)
+    # Determine changed flags
+    changed_flags = dict((name, flags) for name, flags in post_processed_flags.items() if validated_flags[name] != flags)
+
+    # Filter messages to only include submitted fields
+    messages = form.messages.copy()
+    for name in set(messages.keys())-set(process_field_names):
+        del messages[name]
+
+    result = {
+        'messages': messages,
+    }
+    if changed_values:
+        result['values'] = changed_values
+    if changed_flags:
+        for flag in CFG_FIELD_FLAGS:
+            fields = [(name, flag in field_flags) for name, field_flags in changed_flags.items()]
+            result[flag+'_on'] = map(lambda x: x[0], filter(lambda x: x[1], fields))
+            result[flag+'_off'] = map(lambda x: x[0], filter(lambda x: not x[1], fields))
+
+    return result
 
 
 def draft_field_set(user_id, uuid, field_name, value):
@@ -415,7 +458,7 @@ def draft_field_set(user_id, uuid, field_name, value):
 
 
 def draft_field_list_add(user_id, uuid, field_name, value,
-                         subfield=None):
+                         dummy_subfield=None):
     """Adds value to field
     Used for fields that contain multiple values
     e.g.1: { field_name : value1 } OR

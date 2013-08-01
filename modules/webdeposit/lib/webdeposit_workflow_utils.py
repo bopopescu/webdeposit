@@ -21,7 +21,6 @@ import os
 import time
 from datetime import datetime
 from invenio.sqlalchemyutils import db
-from invenio.webdeposit_config_utils import WebDepositConfiguration
 from invenio.bibworkflow_model import Workflow
 from invenio.bibfield_jsonreader import JsonReader
 from tempfile import mkstemp
@@ -164,10 +163,8 @@ def export_marc_from_json():
             one()[0]
 
         # Get the collection from configuration
-        deposition_conf = WebDepositConfiguration(deposition_type=deposition_type)
-        # or if it's not there, name the collection after the deposition type
-        json_reader['collection.primary'] = \
-            deposition_conf.get_collection() or deposition_type
+        # FIXME: Collection should be fully configurable.
+        json_reader['collection.primary'] = deposition_type
 
         if 'recid' not in json_reader or 'record ID' not in json_reader:
             # Record is new, reserve record id

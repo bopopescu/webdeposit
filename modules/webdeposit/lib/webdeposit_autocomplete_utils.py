@@ -29,12 +29,20 @@ def sherpa_romeo_publishers(value):
     return publishers
 
 
-def sherpa_romeo_journals(value):
-    s = SherpaRomeoSearch()
-    journals = s.search_journal(value)
-    if journals is None:
-        return []
-    return journals
+def sherpa_romeo_journals(dummy_form, field, limit=50):
+    """
+    Search SHERPA/RoMEO for journal name
+    """
+    if field.data:
+        # SherpaRomeoSearch doesnt' like unicode
+        val = field.data
+        if isinstance(val, unicode):
+            val = val.encode('utf8')
+        s = SherpaRomeoSearch()
+        journals = s.search_journal(val)
+        if journals is not None:
+            return journals[:limit]
+    return []
 
 
 def orcid_authors(value):

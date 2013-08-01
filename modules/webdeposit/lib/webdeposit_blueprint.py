@@ -28,7 +28,8 @@ from flask import current_app, \
     redirect, \
     url_for, \
     flash, \
-    send_file
+    send_file, \
+    abort
 from werkzeug.utils import secure_filename
 from uuid import uuid1 as new_uuid
 
@@ -36,8 +37,7 @@ from invenio.cache import cache
 from invenio.webdeposit_load_deposition_types import deposition_types, \
     deposition_metadata
 from invenio.webinterface_handler_flask_utils import _, InvenioBlueprint
-from invenio.webdeposit_utils import get_current_form, \
-    get_form, \
+from invenio.webdeposit_utils import get_form, \
     draft_field_set, \
     draft_field_list_add, \
     delete_workflow, \
@@ -45,7 +45,8 @@ from invenio.webdeposit_utils import get_current_form, \
     get_latest_or_new_workflow, \
     get_workflow, \
     draft_field_get_all, \
-    draft_field_error_check, \
+    draft_form_process_and_validate, \
+    draft_form_autocomplete, \
     draft_field_get, \
     set_form_status, \
     get_form_status, \
@@ -66,7 +67,7 @@ blueprint = InvenioBlueprint('webdeposit', __name__,
                                           'webdeposit.index_deposition_types',
                                           2)],
                              breadcrumbs=[(_('Deposit'),
-                                           'webdeposit.index_deposition_types')])
+                                          'webdeposit.index_deposition_types')])
 
 
 @blueprint.route('/upload_from_url/<deposition_type>/<uuid>', methods=['POST'])
@@ -131,46 +132,77 @@ def check_status(uuid):
     return jsonify({"status": form_status})
 
 
-@blueprint.route('_autocomplete/<uuid>', methods=['GET', 'POST'])
+@blueprint.route('/autocomplete/<uuid>', methods=['GET', 'POST'])
 @blueprint.invenio_authenticated
 def autocomplete(uuid):
     """ Returns a list with of suggestions for the field
         based on the current value
     """
-    query = request.args.get('term')  # value
-    field_type = request.args.get('type')  # field
+    term = request.args.get('term')  # value
+    field_name = request.args.get('field')  # field
     limit = request.args.get('limit', 50, type=int)
 
-    form = get_current_form(current_user.get_id(), uuid=uuid)[1]
-    form.__dict__["_fields"][field_type].process_data(query)
+    result = draft_form_autocomplete(
+        current_user.get_id(), uuid, field_name, term, limit
+    )
 
-    #Check if field has an autocomplete function
-    if hasattr(form.__dict__["_fields"][field_type], "autocomplete"):
-        return jsonify(results=form.__dict__["_fields"][field_type].
-                       autocomplete()[:limit])
-    else:
-        return jsonify(results=[])
+    return jsonify(results=result)
 
 
-@blueprint.route('_errorCheck/<uuid>')
+@blueprint.route('/save/<uuid>', methods=['POST'])
 @blueprint.invenio_authenticated
 def error_check(uuid):
-    """ Used for field error checking
     """
-    value = request.args.get('attribute')
-    field_name = request.args.get('name')
+    Save and run error check on field values
 
-    if field_name == "":
-        return "{}"
+    The request body must contain a JSON-serialized field/value-dictionary.
+    A single or multiple fields may be passed in the dictionary, and values
+    may be any JSON-serializable object. Example::
 
-    draft_field_set(current_user.get_id(), uuid, field_name, value)
+        {
+            'title': 'Invenio Software',
+            'authors': [['Smith, Joe', 'CERN'],['Smith, Jane','CERN']]
+        }
 
-    check_result = draft_field_error_check(current_user.get_id(),
-                                           uuid, field_name, value)
+    The response is a JSON-serialized dictionary with the keys:
+
+    * messages: Field/messages-dictionary
+    * values: Field/value-dictionary of unsubmitted fields that changed value.
+    * <flag>_on: List of fields, which flag changed to on.
+    * <flag>_off: List of fields, which flag changed to off.
+
+
+    The field/messages-dictionary looks like this::
+
+        {'title': {'state': '<state>', 'messages': [,...]}}
+
+    where <state> is either 'success' if field was validated successfully,
+    'info' if an information message should be displayed, and respectively the
+    same for 'warning' and 'error'.
+
+        Example response::
+
+        {
+            'messages': {'title': {'state': '<state>', 'messages': [,...]}},
+            'values': {'<field>': <value>, ...},
+            'hidden_on': ['<field>', ...],
+            'hidden_off': ['<field>', ...],
+            'disabled_on': ['<field>', ...],
+            'disabled_off': ['<field>', ...],
+        }
+
+    @return: A JSON-serialized field/result-dictionary (see above)
+    """
+    if request.method != 'POST':
+        abort(400)
+
+    # Process data, run validation, set in workflow object and return result
+    result = draft_form_procees_and_validate(uid, uuid, request.json)
+
     try:
-        return jsonify(check_result)
+        return jsonify(result)
     except TypeError:
-        return jsonify({"error_message": "", "error": 0})
+        return jsonify(None)
 
 
 @blueprint.route('/<deposition_type>/delete/<uuid>')

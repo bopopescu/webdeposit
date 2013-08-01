@@ -91,3 +91,45 @@ def dropbox_widget(field, **kwargs):
             <div id="upload-errors"></div>\
         </div>' % html_params(id=field_id)]
     return HTMLString(u''.join(html))
+
+
+class ButtonWidget(object):
+    """
+    Renders a button.
+    """
+
+    def __init__(self, label="", tooltip=None, icon=None, **kwargs):
+        """
+        Note, the icons assume use of Twitter Bootstrap,
+        Font Awesome or some other icon library, that allows
+        inserting icons with a <i>-tag.
+
+        @param tooltip: str, Tooltip text for the button.
+        @param icon: str, Name of an icon, e.g. icon-barcode.
+        """
+        self.icon = icon
+        self.label = label
+        self.default_params = kwargs
+        self.default_params.setdefault('type', 'button')
+        if tooltip:
+            self.default_params.setdefault('data-toggle', 'tooltip')
+            self.default_params.setdefault('title', tooltip)
+        super(ButtonWidget, self).__init__()
+
+    def __call__(self, field, **kwargs):
+        params = self.default_params.copy()
+        params.update(kwargs)
+        params.setdefault('id', field.id)
+        params['class_'] = params.get('class_',"") + " form-button"
+
+        icon = ""
+        if self.icon:
+            icon = '<i class="%s"></i> ' % self.icon
+
+        state = ""
+        if field._value():
+            state = '<span class="text-success"> <i class="icon-ok"></i></span>'
+
+        return HTMLString(u'<button %s>%s%s</button><span %s>%s</span>' % (html_params(
+            name=field.name, **params), icon, self.label,
+            html_params(id=field.name+'-loader', class_='loader'), state))

@@ -20,10 +20,46 @@
 
 /* Helpers */
 
-function unique_ID() {
+function unique_id() {
     return Math.round(new Date().getTime() + (Math.random() * 100));
 }
 
+/*
+ * Get settings for performing an AJAX request with $.ajax
+ * that will POST a JSON object to the given URL
+ *
+ * @param settings: A hash with the keys: url, data.
+ */
+function json_options(settings){
+    // Perform AJAX request with JSON data.
+    return {
+        url: settings['url'],
+        type: 'POST',
+        cache: false,
+        data: JSON.stringify(settings['data']),
+        contentType: "application/json; charset=utf-8",
+        dataType: 'json'
+    };
+}
+
+/*
+ * Serialize a form into JSON
+ */
+function serialize_object(selector){
+    var o = {};
+    var a = $(selector).serializeArray();
+    $.each(a, function() {
+        if (o[this.name] !== undefined) {
+            if (!o[this.name].push) {
+                o[this.name] = [o[this.name]];
+            }
+            o[this.name].push(this.value || '');
+        } else {
+            o[this.name] = this.value || '';
+        }
+    });
+    return o;
+}
 
 function getBytesWithUnit(bytes){
 	if( isNaN( bytes ) ){
@@ -38,15 +74,16 @@ function getBytesWithUnit(bytes){
 	bytes = +bytes / Math.pow( 2, 10*i );
 
 	// Rounds to 2 decimals places.
-    bytes_to_fixed = bytes.toFixed(2)
+    bytes_to_fixed = bytes.toFixed(2);
     if( bytes.toString().length > bytes_to_fixed.toString().length ){
         bytes = bytes_to_fixed;
     }
 	return bytes + units[i];
-};
+}
 
-/* Plupload */
-
+/*
+ * Initialize PLUpload
+ */
 function webdeposit_init_plupload(selector, url, delete_url, get_file_url, db_files, dropbox_url) {
 
     uploader = new plupload.Uploader({
@@ -57,7 +94,7 @@ function webdeposit_init_plupload(selector, url, delete_url, get_file_url, db_fi
         chunk_size : '1mb',
         //unique_names : true,
         browse_button : 'pickfiles',
-        drop_element : 'filebox'
+        drop_element : 'field-plupload_file'
 
         // Specify what files to browse for
         //filters : [
@@ -67,7 +104,7 @@ function webdeposit_init_plupload(selector, url, delete_url, get_file_url, db_fi
         //]
     });
 
-    queue_progress = new plupload.QueueProgress()
+    queue_progress = new plupload.QueueProgress();
 
     uploader.init();
 
@@ -77,7 +114,7 @@ function webdeposit_init_plupload(selector, url, delete_url, get_file_url, db_fi
 
             $.each(db_files, function(i, file) {
                 // Simulate a plupload file object
-                id = unique_ID();
+                id = unique_id();
                 var plfile = new plupload.File({
                     id: id,
                     name: file.name,
@@ -194,7 +231,7 @@ function webdeposit_init_plupload(selector, url, delete_url, get_file_url, db_fi
                 '<tr id="' + file.id + '" style="display:none;z-index:-100;">' +
                 '<td id="' + file.id + '_link">' + file.name + '</td>' +
                 '<td>' + getBytesWithUnit(file.size) + '</td>' +
-                '<td width="30%"><div class="progress progress-stri´ped active"><div class="bar" style="width: 0%;"></div></div></td>' +
+                '<td width="30%"><div class="progress progress-striped active"><div class="bar" style="width: 0%;"></div></div></td>' +
                 '<td><a id="' + file.id + '_rm" class="rmlink"><i class="icon-trash"></i></a></td>' +
                 '</tr>');
             $('#filelist #' + file.id).show('fast');
@@ -221,6 +258,62 @@ function webdeposit_init_plupload(selector, url, delete_url, get_file_url, db_fi
         up.total.reset();
     });
 
+    $("#filelist").sortable();
+    $("#filelist").disableSelection();
+}
+
+/*
+ * Initialize save-button
+ */
+function webdeposit_init_save(url, selector, form_selector) {
+    $(selector).click(function(e){
+        // Stop propagation of event to prevent form submission
+        e.preventDefault();
+
+        webdeposit_set_status(tpl_webdeposit_status_saving, {name: null, value: null});
+
+        $.ajax(
+            json_options({url: url, data: serialize_object(form_selector)})
+        ).done(function(data) {
+            var errors = false;
+            // FIXME- get errors from response
+            webdeposit_handle_response(data);
+            if(errors) {
+                webdeposit_set_status(tpl_webdeposit_status_saved_with_errors, {name: name, value: value});
+                webdeposit_flash_message({state:'warning', message: tpl_message_errors.render({})});
+            } else {
+                webdeposit_set_status(tpl_webdeposit_status_saved, {name: name, value: value});
+                webdeposit_flash_message({state:'success', message: tpl_message_success.render({})});
+            }
+        }).fail(function() {
+            webdeposit_flash_message({state:'error', message: tpl_message_server_error.render({})});
+            check_empty_fields(name);
+            webdeposit_set_status(tpl_webdeposit_status_error, {name: name, value: value});
+        });
+
+        return false;
+    });
+}
+
+
+/*
+ * Initialize submit-button
+ */
+function webdeposit_init_submit(url, selector, form_selector) {
+    $(selector).click(function(e){
+        e.preventDefault();
+        // webdeposit_set_status(tpl_webdeposit_status_saving, {});
+        // //emptyForm = checkEmptyFields(null);
+        // if (emptyForm[0] == 0){
+        //     $('#empty-fields-error').hide('slow');
+        //     webdeposit_set_status(tpl_webdeposit_status_saved, {});
+        // }
+        // else {
+        //     $('#empty-fields-error').html("<a class='close' data-dismiss='alert' href='#'>×</a>These fields are required:<ul>" + emptyForm[1] + "</ul>" );
+        //     $('#empty-fields-error').show('slow');
+        //     webdeposit_set_status(tpl_webdeposit_status_saved_with_errors, {});
+        // }
+    });
 }
 
 
@@ -229,191 +322,280 @@ var errors = 0;
 var oldJournal;
 
 
-function webdeposit_handle_field_data(name, value, data, url, required_fields) {
-    // handles a response from the server for the field
-    if (data.error == 1) {
-        errorMsg = data.error_message;
-        $('#error-' + name).html(errorMsg);
-        $('.error-list-' + name).hide('slow');
-        $('#error-' + name).show('slow');
-        $("#error-group-" + name).addClass('error');
-        errors++;
-    } else {
-        $('#error-' + name).hide('slow');
-        $('.error-list-' + name).hide('slow');
-        $("#error-group-" + name).removeClass('error');
-        if (errors > 0)
-            errors--;
-        emptyForm = checkEmptyFields(false, name, required_fields);
-        if (emptyForm[0] === 0) {
-            $('#empty-fields-error').hide('slow');
-        }
-        else {
-            $('#empty-fields-error').html("These fields are required!</br>" + emptyForm[1]);
-            $('#empty-fields-error').show();
-        }
+/*
+ * Handle update of field message box.
+ *
+ * @return: True if message was set, False if no message was set.
+ */
+function webdeposit_handle_field_msg(name, data) {
+    if(!data) {
+        return false;
     }
 
-    dismiss = '<button type="button" class="close" data-dismiss="alert">&times;</button>';
-
-    if (data.success == 1) {
-        success = '<div class="alert alert-success help-inline" id="success-' + name + '" style="display:none;">' +
-                  dismiss + data.success_message +
-                  '</div>';
-        $('#success-' + name).remove();
-        $('#field-' + name).append(success);
-        $('#success-' + name).show('slow');
-    }
-    else {
-      $('#success-' + name).remove();
+    state = '';
+    if(data.state) {
+        state = data.state;
     }
 
-    if (data.info == 1) {
-        info = '<div class="alert alert-info help-inline" id="info-' + name + '" style="display:none;">' +
-               dismiss + data.info_message +
-               '</div>';
-        $('#info-' + name).remove();
-        $('#field-' + name).append(info);
-        $('#info-' + name).css('margin-top', '10px');
-        $('#info-' + name).css('clear', 'both');
-        $('#info-' + name).css('float', 'left');
-        $('#info-' + name).show('slow');
-    }
-    else {
-      $('#info-' + name).remove();
-    }
+    if(data.messages && data.messages.length !== 0) {
+        $('#state-' + name).html(
+            tpl_field_message.render({
+                name: name,
+                state: state,
+                messages: data.messages
+            })
+        );
 
-    if (data.fields) {
-        $.each(data.fields, function(name, value) {
-            if (name == 'files'){
-                $.each(value, function(i, file){
-                    id = unique_ID();
-
-                    new_file = {
-                        id: id,
-                        name: file.name,
-                        size: file.size
-                    };
-
-                    $('#filelist').append(
-                        '<tr id="' + id + '" style="display:none;">' +
-                            '<td id="' + id + '_link">' + file.name + '</td>' +
-                            '<td>' + getBytesWithUnit(file.size) + '</td>' +
-                            '<td width="30%"><div class="progress active"><div class="bar" style="width: 100%;"></div></div></td>' +
-                        '</tr>');
-                    $('#filelist #' + id).show('fast');
-                });
-                $('#file-table').show('slow');
-            }
-            else {
-                $('#error-' + name).hide('slow');
-                errors--;
-                old_value = $('[name=' + name + ']').val();
-                if (old_value != value) {
-                    if (typeof ckeditor === 'undefined')
-                        $('[name=' + name + ']').val(value);
-                    else if (ckeditor.name == name)
-                            ckeditor.setData(value);
-                    webdeposit_handle_new_value(name, value, url, required_fields);
-                }
+        ['info','warning','error','success'].map(function(s){
+            $("#state-group-" + name).removeClass(s);
+            $("#state-" + name).removeClass('alert-'+s);
+            if(s == state) {
+                $("#state-group-" + name).addClass(state);
+                $("#state-" + name).addClass('alert-'+state);
             }
         });
-    }
 
-    if (data.disabled_fields) {
-        $.each(data.disabled_fields, function(i, field){
+        $('#state-' + name).show();
+        return true;
+    } else {
+        webdeposit_clear_error(name);
+        return false;
+    }
+}
+
+function webdeposit_clear_error(name){
+    $('#state-' + name).hide();
+    $('#state-' + name).html("");
+    ['info','warning','error','success'].map(function(s){
+        $("#state-group-" + name).removeClass(s);
+        $("#state-" + name).removeClass('alert-'+s);
+    });
+}
+
+function webdeposit_handle_field_values(name, value) {
+    if (name == 'files'){
+        $.each(value, function(i, file){
+            id = unique_id();
+
+            new_file = {
+                id: id,
+                name: file.name,
+                size: file.size
+            };
+
+            $('#filelist').append(
+                '<tr id="' + id + '" style="display:none;">' +
+                    '<td id="' + id + '_link">' + file.name + '</td>' +
+                    '<td>' + getBytesWithUnit(file.size) + '</td>' +
+                    '<td width="30%"><div class="progress active"><div class="bar" style="width: 100%;"></div></div></td>' +
+                '</tr>');
+            $('#filelist #' + id).show('fast');
+        });
+        $('#file-table').show('slow');
+    } else {
+        webdeposit_clear_error(name);
+        errors--;
+        old_value = $('[name=' + name + ']').val();
+        if (old_value != value) {
+            if (typeof ckeditor === 'undefined')
+                $('[name=' + name + ']').val(value);
+            else if (ckeditor.name == name)
+                    ckeditor.setData(value);
+            //webdeposit_handle_new_value(name, value, url);
+        }
+    }
+}
+
+/*
+ * Handle server response for multiple fields.
+ */
+function webdeposit_handle_response(data) {
+    if('messages' in data) {
+        $.each(data['messages'], webdeposit_handle_field_msg);
+    }
+    if('values' in data) {
+        $.each(data['values'], webdeposit_handle_field_values);
+    }
+    if('hidden_on' in data) {
+        $.each(data['hidden_on'], function(idx, field){
+            $('#state-group-'+field).hide("slow");
+        });
+    }
+    if('hidden_off' in data) {
+        $.each(data['hidden_off'], function(idx, field){
+            $('#state-group-'+field).show("slow");
+        });
+    }
+    if('disabled_on' in data) {
+        $.each(data['disabled_on'], function(idx, field){
             $('#'+field).attr('disabled','disabled');
         });
     }
-
-    if (data.enabled_fields) {
-        $.each(data.enabled_fields, function(i, field){
-            $('#'+field).removeiAttr('disabled');
+    if('disabled_off' in data) {
+        $.each(data['disabled_off'], function(idx, field){
+            $('#'+field).removeAttr('disabled');
         });
     }
+}
 
-    if (data.hidden_fields) {
-        $.each(data.hidden_fields, function(i, field){
-            $('#error-group-'+field).hide();
-        });
-    }
+/*
+ * Set value of status indicator in form (e.g. saving, saved, ...)
+ */
+function webdeposit_set_status(tpl, ctx) {
+    $('.status-indicator').show();
+    $('.status-indicator').html(tpl.render(ctx));
+}
 
-    if (data.visible_fields) {
-        $.each(data.visible_fields, function(i, field){
-            $('#error-group-'+field).show();
-        });
-    }
+function webdeposit_set_loader(selector, tpl, ctx) {
+    $(selector).show();
+    $(selector).html(tpl.render(ctx));
+}
 
-  }
+/*
+ * Flash a message in the top.
+ */
+function webdeposit_flash_message(ctx) {
+    $('#flash-message').html(tpl_flash_message.render(ctx));
+    $('#flash-message').show();
+}
 
-function webdeposit_handle_new_value(name, value, url, required_fields) {
+function webdeposit_handle_new_value(name, value, url) {
   // sends an ajax request with the data
   $.getJSON(url, {
       name: name,
       attribute: value
   }, function(data){
-        webdeposit_handle_field_data(name, value, data, url, required_fields);
-        $('#status-indicator').html("Saved!");
+        webdeposit_handle_field_data(name, value, data, url);
+        webdeposit_set_status(tpl_webdeposit_status_saved, {name: name, value: value});
   });
 }
 
-function webdeposit_input_error_check(selector, url, required_fields) {
-  $(selector).change( function() {
+
+/*
+ * Save and check field values for errors.
+ */
+function webdeposit_input_error_check(selector, url) {
+    $(selector).change( function() {
         name = this.name;
         value = this.value;
-        $('#status-indicator').html("Saving " + $("label[for="+this.name+"]").html() + "...");
-        $.getJSON(url, {
-            name: name,
-            attribute: value
-        }, function(data){
-            webdeposit_handle_field_data(name, value, data, url, required_fields);
-            $('#status-indicator').html("Saved!");
+
+        webdeposit_set_status(tpl_webdeposit_status_saving, {name: name, value: value});
+
+        request_data = {};
+        request_data[name] = value;
+
+        $.ajax(
+            json_options({url: url, data: request_data})
+        ).done(function(data) {
+            webdeposit_handle_response(data);
+            webdeposit_set_status(tpl_webdeposit_status_saved, {name: name, value: value});
+        }).fail(function() {
+            check_empty_fields(name);
+            webdeposit_set_status(tpl_webdeposit_status_error, {name: name, value: value});
         });
-    return false;
-  });
+
+        return false;
+    });
 }
+
+/*
+ * Click form-button
+ */
+function webdeposit_button_click(selector, url) {
+    $(selector).click( function() {
+        name = this.name;
+        loader_selector = '#' + name + '-loader';
+
+        webdeposit_set_loader(loader_selector, tpl_loader, {name: name});
+
+        request_data = {};
+        request_data[name] = true;
+
+        $.ajax(
+            json_options({url: url, data: request_data})
+        ).done(function(data) {
+            webdeposit_handle_response(data);
+            webdeposit_set_loader(loader_selector, tpl_loader_success, {name: name});
+        }).fail(function() {
+            webdeposit_set_loader(loader_selector, tpl_loader_failed, {name: name});
+        });
+
+        return false;
+    });
+}
+
+
 
 
 /*
  * CKEditor
  */
 
-function webdeposit_ckeditor_init(selector, url, required_fields) {
+function webdeposit_ckeditor_init(selector, url) {
     CKEDITOR.replace(selector);
 
     ckeditor = CKEDITOR.instances[selector];
     ckeditor.on('blur',function(event){
-        webdeposit_handle_new_value(selector, ckeditor.getData(), url, required_fields);
+        webdeposit_handle_new_value(selector, ckeditor.getData(), url);
     });
 }
 
 /********************************************************/
+/*
+ * Check if required field is empty
+ *
+ * @param field: Name of field, or null to check all fields.
+ */
+function check_empty_fields(field) {
+    check_fields = [];
+    empty_fields = [];
 
+    if (field && $.inArray(field, required_fields)) {
+        check_fields = [field];
+    } else if (field === undefined) {
+        check_fields = required_fields;
+    }
 
-function checkEmptyFields(all_fields, field, required_fields) {
-    var emptyFields = "";
-    var empty = 0;
-    $(":text, :file, :checkbox, select, textarea").each(function() {
-      // Run the checks only for fields that are required
-      if ($.inArray(this.name, required_fields) > -1) {
-        if(($(this).val() === "") || ($(this).val() === null)) {
-            emptyFields += "- " + $("label[for='"+this.name+"']").html() + "</br>";
-            if ( (all_fields === true) || (field == this.name)) {
-                $('#error-'+this.name).html($("label[for='"+this.name+"']").html() + " field is required!");
-                $('#error-'+this.name).show('slow');
-            }
-            empty = 1;
+    check_fields.map(function(f){
+        label = $("label[for='"+f+"']").html() || '';
+        value = $('#'+f).val();
+
+        if(value === "" || value === null) {
+            webdeposit_handle_field_msg(field, {state: 'error', message: tpl_required_field_message.render({label: label.toString().trim(), value: value})});
+            empty_fields.push(f);
         } else {
-          $('#error-'+this.name).hide('slow');
+            webdeposit_handle_field_msg(field, {state: '', message: ''});
         }
-      }
     });
-    // Return the text only if all fields where requested
-    if ( (empty == 1) && all_fields)
-        return [1, emptyFields];
-    else
-        return [0, emptyFields];
+
+    return empty_fields;
 }
+
+// function checkEmptyFields(all_fields, field, required_fields) {
+//     var emptyFields = "";
+//     var empty = 0;
+//     $(":text, :file, :checkbox, select, textarea").each(function() {
+//       // Run the checks only for fields that are required
+//       if ($.inArray(this.name, required_fields) > -1) {
+//         if(($(this).val() === "") || ($(this).val() === null)) {
+//             emptyFields += "<li>" + $("label[for='"+this.name+"']").html() + "</li>";
+//             if ( (all_fields === true) || (field == this.name)) {
+//                 $('#error-'+this.name).html($("label[for='"+this.name+"']").html() + " field is required!");
+//                 $("#error-group-" + this.name).addClass('error');
+//                 $('#error-'+this.name).show('slow');
+//             }
+//             empty = 1;
+//         } else {
+//           $('#error-'+this.name).hide('slow');
+//         }
+//       }
+//     });
+//     // Return the text only if all fields where requested
+//     if ( (empty == 1) && all_fields)
+//         return [1, emptyFields];
+//     else
+//         return [0, emptyFields];
+// }
 
 var autocomplete_request = $.ajax();
 
@@ -469,7 +651,7 @@ if (document.getElementById("db-chooser") !== null) {
         function(e) {
             $('#file-table').show('slow');
             $.each(e.files, function(i, file){
-                id = unique_ID();
+                id = unique_id();
 
                 dbfile = {
                     id: id,

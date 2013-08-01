@@ -150,14 +150,16 @@ class DepositionWorkflow(object):
         """ Returns a representation of the current state of the workflow
             (a dict with the variables to fill the jinja template)
         """
-        user_id = self.user_id
-        uuid = self.get_uuid()
-
         from invenio.webdeposit_utils import get_form, \
             draft_field_get_all
 
+        user_id = self.user_id
+        uuid = self.get_uuid()
+
         if form is None:
-            form = get_form(user_id, uuid)
+            form = get_form(
+                user_id, uuid, validate_draft=False if form_validation else True
+            )
 
         deposition_type = self.obj['deposition_type']
         drafts = draft_field_get_all(user_id, deposition_type)
@@ -165,8 +167,8 @@ class DepositionWorkflow(object):
         if form_validation:
             form.validate()
 
-        # Get the template from configuration for this form
-        template = form.config.get_template() or 'webdeposit_add.html'
+        # Get the template for this form
+        template = form.get_template()
 
         return dict(template_name_or_list=template,
                     workflow=self,

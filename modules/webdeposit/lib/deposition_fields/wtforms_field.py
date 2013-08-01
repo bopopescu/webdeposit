@@ -26,7 +26,7 @@ The code is basically identical to importing all the WTForm fields and for each
 field make a subclass according to the pattern (using FloatField as
 an example)::
 
-    class FloatField(WebDepositField(), wtforms.FloatField):
+    class FloatField(WebDepositField, wtforms.FloatField):
         pass
 """
 
@@ -47,7 +47,7 @@ for attr_name in dir(wtforms):
             #
             # For further information please see Python reference documne for
             # globals() and type() functions.
-            globals()[attr_name] = type(str(attr_name), (WebDepositField(), attr), {})
+            globals()[attr_name] = type(str(attr_name), (WebDepositField, attr), {})
             __all__.append(attr_name)
     except TypeError:
         pass
