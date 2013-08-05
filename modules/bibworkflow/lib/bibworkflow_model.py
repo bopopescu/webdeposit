@@ -49,6 +49,39 @@ class WorkflowLogging(db.Model):
         return "<WorkflowLog(%i, %s, %s, %s)>" % \
                (self.id, self.id_workflow, self.message, self.created)
 
+    @classmethod
+    def get(cls, *criteria, **filters):
+        """ A wrapper for the filter and filter_by functions of sqlalchemy.
+        Define a dict with which columns should be filtered by which values.
+
+        e.g. Workflow.get(uuid=uuid)
+             Workflow.get(Workflow.uuid != uuid)
+
+        The function supports also "hybrid" arguments.
+        e.g. Workflow.get(Workflow.module_name != 'i_hate_this_module',
+                          user_id=user_id)
+
+        look up also sqalchemy BaseQuery's filter and filter_by documentation
+        """
+        return cls.query.filter(*criteria).filter_by(**filters)
+
+
+    @classmethod
+    def get_most_recent(cls, *criteria, **filters):
+        """ Returns the most recently modified workflow. """
+
+        most_recent = cls.get(*criteria, **filters).\
+                              order_by(desc(WorkflowLogging.created)).first()
+        if most_recent is None:
+            raise NoResultFound
+        else:
+            return most_recent
+
+    @classmethod
+    def delete(cls, uuid=None):
+        cls.get(WorkflowLogging.id_workflow == uuid).delete()
+        db.session.commit()
+
 
 class BibWorkflowObjectLogging(db.Model):
     """
@@ -77,6 +110,38 @@ class BibWorkflowObjectLogging(db.Model):
     def __repr__(self):
         return "<ObjectLog(%i, %s, %s, %s)>" % \
                (self.id, self.id_bibworkflowobject, self.message, self.created)
+
+    @classmethod
+    def get(cls, *criteria, **filters):
+        """ A wrapper for the filter and filter_by functions of sqlalchemy.
+        Define a dict with which columns should be filtered by which values.
+
+        e.g. Workflow.get(uuid=uuid)
+             Workflow.get(Workflow.uuid != uuid)
+
+        The function supports also "hybrid" arguments.
+        e.g. Workflow.get(Workflow.module_name != 'i_hate_this_module',
+                          user_id=user_id)
+
+        look up also sqalchemy BaseQuery's filter and filter_by documentation
+        """
+        return cls.query.filter(*criteria).filter_by(**filters)
+
+    @classmethod
+    def get_most_recent(cls, *criteria, **filters):
+        """ Returns the most recently modified workflow. """
+
+        most_recent = cls.get(*criteria, **filters).\
+                              order_by(desc(BibWorkflowObjectLogging.created)).first()
+        if most_recent is None:
+            raise NoResultFound
+        else:
+            return most_recent
+
+    @classmethod
+    def delete(cls, id=None):
+        cls.get(BibWorkflowObjectLogging.id_bibworkflowobject == id).delete()
+        db.session.commit()
 
 
 class Workflow(db.Model):
@@ -349,18 +414,7 @@ BibWorkflowObject
         return NotImplemented
 
     def __ne__(self, other):
-        if isinstance(other, BibWorkflowObject):
-            if self._data == other._data and \
-                    self.extra_data == other.extra_data and \
-                    self.id_workflow == other.id_workflow and \
-                    self.version == other.version and \
-                    self.id_parent == other.id_parent and \
-                    isinstance(self.created, datetime) and \
-                    isinstance(self.modified, datetime):
-                return False
-            else:
-                return True
-        return False
+        return not self.__eq__(other)
 
     def add_task_result(self, task_name, result):
         self.extra_data["tasks_results"][task_name] = result
