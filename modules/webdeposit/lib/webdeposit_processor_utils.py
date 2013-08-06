@@ -24,12 +24,13 @@ from invenio.dataciteutils import DataciteMetadata
 #
 # General purpose processors
 #
+
 def replace_field_data(field_name):
     """
     Returns a processor, which will replace the given field names value with
     the value from the field where the processor is installed.
     """
-    def _inner(form, field):
+    def _inner(form, field, submit):
         getattr(form, field_name).data = field.data
     return _inner
 

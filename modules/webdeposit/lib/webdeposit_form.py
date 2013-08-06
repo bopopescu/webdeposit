@@ -40,6 +40,17 @@ See more about WTForm field flags on:
 http://wtforms.simplecodes.com/docs/1.0.4/fields.html#wtforms.fields.Field.flags
 """
 
+"""
+Form customization
+
+you can customize the following for the form
+
+_title: str, the title to be rendered on top of the form
+_subtitle: str/html. explanatory text to be shown under the title.
+_drafting: bool, show or hide the drafts at the right of the form
+
+"""
+
 
 class WebDepositForm(Form):
 
@@ -60,6 +71,12 @@ class WebDepositForm(Form):
                 self.groups_meta[group_name] = CFG_GROUPS_META.copy()
                 if len(group) == 3:  # If group has metadata
                     self.groups_meta[group_name].update(group[2])
+
+        if not hasattr(self, 'template'):
+            self.template = 'webdeposit_add.html'
+
+        if not hasattr(self, '_drafting'):
+            self._drafting = True
 
     def reset_field_data(self, exclude=[]):
         """
@@ -83,9 +100,7 @@ class WebDepositForm(Form):
                 # Some fields (eg. SubmitField) don't have a cook json function
                 pass
 
-        # FIXME: Get file cook function from Workflow or Form?
-        cook_files_function = cook_files
-        json_reader = cook_files_function(json_reader, self.files)
+        json_reader = cook_files(json_reader, self.files)
 
         return json_reader
 
@@ -151,20 +166,16 @@ class WebDepositForm(Form):
 
     def get_template(self):
         """
-        Get template used to render this form.
+        Get template to render this form.
+        Define a data member `template` to customize which template to use.
 
-        Overwrite this method to customize which template is being used to
-        render the form.
+        By default, it will render the template `webdeposit_add.html`
 
-        By default, it will look for the templates:
-
-          * webdeposit_add_<name>.html
-          * webdeposit_add.html
         """
 
-        return ['webdeposit_add.html']
+        return [self.template]
 
-    def post_process(self, fields=[]):
+    def post_process(self, fields=[], submit=False):
         """
         Run form post-processing by calling `post_process` on each field,
         passing any extra `Form.post_process_<fieldname>` processors to the
@@ -185,7 +196,7 @@ class WebDepositForm(Form):
                     extra = [inline]
                 else:
                     extra = []
-                field.post_process(self, extra_processors=extra)
+                field.post_process(self, extra_processors=extra, submit=False)
 
     def autocomplete(self, name, limit=50):
         """
@@ -211,7 +222,9 @@ class WebDepositForm(Form):
                 (
                     name,
                     {
-                        'state': f.message_state if f.message_state else '',
+                        'state': f.message_state
+                                 if hasattr(f, 'message_state') and f.message_state
+                                 else '',
                         'messages': f.messages,
                     }
                 ) for name, f in self._fields.items()

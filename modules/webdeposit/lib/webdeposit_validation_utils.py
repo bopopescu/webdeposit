@@ -25,6 +25,7 @@ import re
 from wtforms.validators import ValidationError, StopValidation, Regexp
 from invenio.config import CFG_SITE_NAME
 
+
 #
 # General purpose validators
 #
@@ -61,12 +62,14 @@ class RequiredIf(object):
 doi_syntax_validator = Regexp(
     "(^$|(doi:)?10\.\d+(.\d+)*/.*)",
     flags=re.I,
-    message="The provided DOI is invalid - it should look similar to " \
+    message="The provided DOI is invalid - it should look similar to "
             "'10.1234/foo.bar'."
 )
+
 """
 DOI syntax validator
 """
+
 
 class InvalidDOIPrefix(object):
     """

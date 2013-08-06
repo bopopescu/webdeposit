@@ -105,13 +105,17 @@ class WebDepositField(object):
         evaluates to None).
 
         @param placeholder: str, Placeholder text for input fields.
-        @param icon: str, Name of icon (rendering of the icon is done by templates)
+        @param icon: Name of icon (rendering of the icon is done by templates)
+        @type icon: str
         @param autocomplete: callable, A function to auto-complete values for field.
         @param processors: list of callables, List of processors to run for field.
         @param validators: list of callables, List of WTForm validators. If no validators are provided, validators defined in webdeposit_config will be loaded.
-        @param hidden: bool, Set to true to hide field. Default: False
-        @param disabled: bool, Set to true to disable field. Default: False
-        @param recjson_key: str, Name of recjson key
+        @param hidden: Set to true to hide field. Default: False
+        @type hidden: bool
+        @param disabled: Set to true to disable field. Default: False
+        @type disabled: bool
+        @param recjson_key: Name of recjson key
+        @type recjson_key: str
 
         @see http://wtforms.simplecodes.com/docs/1.0.4/validators.html for
              how to write validators.
@@ -195,7 +199,7 @@ class WebDepositField(object):
         return super(WebDepositField, self).__call__(*args, **kwargs)
 
 
-    def post_process(self, form, extra_processors=[]):
+    def post_process(self, form, extra_processors=[], submit=False):
         """
         Post process form before saving.
 
@@ -220,14 +224,14 @@ class WebDepositField(object):
         stop = False
         for p in (self.processors or []):
             try:
-                p(form, self)
+                p(form, self, submit)
             except StopIteration:
                 stop = True
                 break
 
         if not stop:
             for p in (extra_processors or []):
-                p(form, self)
+                p(form, self, submit)
 
     def can_autocomplete(self):
         """

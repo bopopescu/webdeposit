@@ -38,7 +38,6 @@ from invenio.webdeposit_load_deposition_types import deposition_types, \
     deposition_metadata
 from invenio.webinterface_handler_flask_utils import _, InvenioBlueprint
 from invenio.webdeposit_utils import get_form, \
-    draft_field_set, \
     draft_field_list_add, \
     delete_workflow, \
     create_workflow, \
@@ -55,7 +54,8 @@ from invenio.webdeposit_utils import get_form, \
     url_upload,\
     get_all_drafts, \
     deposit_files, \
-    delete_file
+    delete_file, \
+    save_form
 from invenio.webuser_flask import current_user
 from invenio.bibworkflow_config import CFG_WORKFLOW_STATUS
 
@@ -197,7 +197,7 @@ def error_check(uuid):
         abort(400)
 
     # Process data, run validation, set in workflow object and return result
-    result = draft_form_procees_and_validate(uid, uuid, request.json)
+    result = draft_form_process_and_validate(current_user.get_id(), uuid, request.json)
 
     try:
         return jsonify(result)
@@ -267,7 +267,6 @@ def index(deposition_type):
                      Workflow.status == CFG_WORKFLOW_STATUS.FINISHED).\
         all()
 
-    drafts = sorted(drafts, key=lambda d: d.timestamp, reverse=True)
     return render_template('webdeposit_index.html', drafts=drafts,
                            deposition_type=deposition_type,
                            deposition_types=deposition_types,
@@ -347,21 +346,20 @@ def add(deposition_type, uuid):
                                  "files", file_metadata)
 
         # Save form values
-        for (field_name, value) in request.form.items():
-            if "submit" in field_name.lower():
-                continue
-            draft_field_set(current_user.get_id(), uuid, field_name, value)
+        form = get_form(current_user.get_id(), uuid, formdata=request.form)
 
-        form = get_form(current_user.get_id(), uuid)
         # Validate form
         if not form.validate():
             # render the form with error messages
             # the `workflow.get_output` function returns also the template
-            return render_template(**workflow.get_output(form_validation=True))
-
+            form.post_process()
+            save_form(current_user.get_id(), uuid, form)
+            return render_template(**workflow.get_output(form=form,
+                                                         form_validation=True))
         #Set the latest form status to finished
         set_form_status(current_user.get_id(), uuid,
                         CFG_DRAFT_STATUS['finished'])
+        save_form(current_user.get_id(), uuid, form)
 
     workflow.run()
     status = workflow.get_status()

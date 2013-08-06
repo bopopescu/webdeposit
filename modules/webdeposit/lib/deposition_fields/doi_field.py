@@ -26,7 +26,7 @@ from invenio.webdeposit_processor_utils import datacite_lookup
 __all__ = ['DOIField']
 
 
-def missing_doi_warning(dummy_form, field):
+def missing_doi_warning(dummy_form, field, dummy_submit=False):
     """
     Field processor, checking for existence of a DOI, and otherwise
     asking people to provide it.

@@ -158,7 +158,7 @@ class DepositionWorkflow(object):
 
         if form is None:
             form = get_form(
-                user_id, uuid, validate_draft=False if form_validation else True
+                user_id, uuid, validate_draft=not form_validation
             )
 
         deposition_type = self.obj['deposition_type']
@@ -228,4 +228,3 @@ class DepositionWorkflow(object):
                 pass
 
         return json_reader
-

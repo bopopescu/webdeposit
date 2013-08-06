@@ -108,7 +108,7 @@ def draft_setter(step=None, key=None, value=None, data=None, field_setter=False)
                 draft = json['drafts'][max(json['drafts'])]
             else:
                 draft = json['drafts'][step]
-        except (ValueError, KeyError) as e:
+        except (ValueError, KeyError):
             # There are no drafts or they are empty
             return
 
@@ -144,7 +144,7 @@ def draft_field_list_setter(field_name, value):
     def setter(json):
         try:
             draft = json['drafts'][max(json['drafts'])]
-        except (ValueError, KeyError) as e:
+        except (ValueError, KeyError):
             # There are no drafts or they are empty
             return
         values = draft['form_values']
@@ -161,9 +161,11 @@ def draft_field_list_setter(field_name, value):
         draft['timestamp'] = str(datetime.now())
     return setter
 
+
 #
 # Workflow functions
 #
+
 def get_latest_or_new_workflow(deposition_type, user_id=None):
     """ Creates new workflow or returns a new one """
 
@@ -272,7 +274,7 @@ def get_form(user_id, uuid, step=None, formdata=None, validate_draft=False):
         form.reset_field_data(exclude=formdata.keys())
 
     # Set field flags
-    for name, flags in webdeposit_draft.get('form_field_flags',{}).items():
+    for name, flags in webdeposit_draft.get('form_field_flags', {}).items():
         for check_flags in CFG_FIELD_FLAGS:
             if check_flags in flags:
                 setattr(form[name].flags, check_flags, True)
@@ -300,7 +302,7 @@ def get_form(user_id, uuid, step=None, formdata=None, validate_draft=False):
     else:
         form.__setattr__('files', {})
 
-    if validate_draft:
+    if validate_draft and draft_data and formdata is None:
         form.validate()
 
     return form
@@ -310,6 +312,9 @@ def save_form(user_id, uuid, form):
     """
     Saves the draft form_values and form_field_flags of a form.
     """
+    json_data = dict((key, value) for key, value in form.json_data.items()
+                if value is not None)
+
     draft_data_update = {
         'form_values': form.json_data,
         'form_field_flags': form.flags,
@@ -556,7 +561,6 @@ def validate_preingested_data(user_id, uuid, deposition_type=None):
 
     deposition = get_workflow(uuid, deposition_type)
 
-
     form_types = []
     # Get all form types from workflow
     for fun in deposition.workflow:
@@ -647,6 +651,7 @@ def draft_field_get_all(user_id, deposition_type):
         if max_draft is not None:
             drafts.append(Draft(max_draft, workflow))
 
+    drafts = sorted(drafts, key=lambda d: d.timestamp, reverse=True)
     return drafts
 
 

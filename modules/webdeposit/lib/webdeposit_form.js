@@ -278,8 +278,9 @@ function webdeposit_init_save(url, selector, form_selector) {
             var errors = false;
             // FIXME- get errors from response
             webdeposit_handle_response(data);
+            webdeposit_set_status(tpl_webdeposit_status_saved, {name: name, value: null});
             if(errors) {
-                webdeposit_set_status(tpl_webdeposit_status_saved_with_errors, {name: name, value: value});
+                webdeposit_set_status(tpl_webdeposit_status_saved_with_errors, {name: name, value: null});
                 webdeposit_flash_message({state:'warning', message: tpl_message_errors.render({})});
             } else {
                 webdeposit_set_status(tpl_webdeposit_status_saved, {name: name, value: value});
@@ -355,7 +356,7 @@ function webdeposit_handle_field_msg(name, data) {
             }
         });
 
-        $('#state-' + name).show();
+        $('#state-' + name).show('fast');
         return true;
     } else {
         webdeposit_clear_error(name);

@@ -18,6 +18,7 @@
 ## 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from wtforms import DateField
+from wtforms.validators import optional
 from invenio.webdeposit_field import WebDepositField
 from datetime import date, datetime
 
@@ -28,6 +29,7 @@ class Date(WebDepositField, DateField):
     def __init__(self, **kwargs):
         defaults = dict(
             icon='icon-calendar',
+            validators=[optional()]
         )
         defaults.update(kwargs)
         super(Date, self).__init__(**kwargs)
