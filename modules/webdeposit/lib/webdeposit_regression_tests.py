@@ -99,7 +99,7 @@ class TestWebDepositUtils(InvenioTestCase):
             deposition_metadata
         from invenio.webdeposit_load_forms import forms
         from invenio.webdeposit_workflow import DepositionWorkflow
-        from invenio.webdeposit_utils import get_current_form, get_form, \
+        from invenio.webdeposit_utils import get_form, \
             get_form_status, set_form_status, CFG_DRAFT_STATUS
         from invenio.bibworkflow_model import Workflow
         from invenio.webdeposit_workflow_utils import render_form, \
@@ -133,13 +133,11 @@ class TestWebDepositUtils(InvenioTestCase):
         assert len(workflows[0].extra_data['drafts']) == 1
 
         # Test that guest user doesn't have access to the form
-        uuid, form = get_current_form(0, deposition_type='TestWorkflow',
-                                      uuid=uuid)
+        form = get_form(0, uuid=uuid)
         assert form is None
 
         # Test that the current form has the right type
-        uuid, form = get_current_form(1, deposition_type='TestWorkflow',
-                                      uuid=deposition_workflow.get_uuid())
+        form = get_form(1, uuid=deposition_workflow.get_uuid())
         assert isinstance(form, forms.values()[0])
         assert str(uuid) == str(deposition_workflow.get_uuid())
 
@@ -207,22 +205,23 @@ class TestWebDepositUtils(InvenioTestCase):
 
     def test_record_creation(self):
         import os
-        from wtforms import TextField, TextAreaField
-        from sqlalchemy import func
+        from wtforms import TextAreaField
         from datetime import datetime
-        from invenio.bibworkflow_model import Workflow
-        from invenio.webdeposit_load_deposition_types import \
-            deposition_metadata
-        from invenio.bibworkflow_config import CFG_WORKFLOW_STATUS
-        from invenio.bibsched_model import SchTASK
-        from invenio.webdeposit_utils import get_current_form, \
-            create_workflow, set_form_status, CFG_DRAFT_STATUS
-        from invenio.webuser_flask import login_user
-        from invenio.webdeposit_workflow_utils import \
-            create_record_from_marc
+
         from invenio.search_engine import record_exists
         from invenio.cache import cache
         from invenio.config import CFG_PREFIX
+        from invenio.webuser_flask import login_user
+        from invenio.bibworkflow_model import Workflow
+        from invenio.bibworkflow_config import CFG_WORKFLOW_STATUS
+        from invenio.bibsched_model import SchTASK
+
+        from invenio.webdeposit_utils import get_form, create_workflow, \
+            set_form_status, CFG_DRAFT_STATUS
+        from invenio.webdeposit_load_deposition_types import \
+            deposition_metadata
+        from invenio.webdeposit_workflow_utils import \
+            create_record_from_marc
         from invenio.bibfield import get_record
 
         login_user(1)
@@ -252,15 +251,15 @@ class TestWebDepositUtils(InvenioTestCase):
             deposition.run()
 
             # Create form's json based on the field name
-            form = get_current_form(1, deposition_type, uuid)[1]
+            form = get_form(1, uuid=uuid)
             webdeposit_json = {}
-            value_inserted = False
 
+            # Fill the json with dummy data
             for field in form:
-                if isinstance(field, TextField) or \
-                   isinstance(field, TextAreaField):
-                    webdeposit_json[field.name] = "test value"
-                    value_inserted = True
+                if isinstance(field, TextAreaField):
+                    # If the field is associated with a marc field
+                    if field.has_recjson_key() or field.has_cook_function():
+                        webdeposit_json[field.name] = "test " + field.name
 
             draft = dict(form_type=form.__class__.__name__,
                          form_values=webdeposit_json,
@@ -295,11 +294,13 @@ class TestWebDepositUtils(InvenioTestCase):
             # Run bibupload, bibindex, webcoll manually
             cmd = "%s/bin/bibupload %s" % (CFG_PREFIX, task_id)
             assert not os.system(cmd)
-
-            if value_inserted:
-                # Test if record contains the inserted value
-                rec = get_record(recid)
-                assert "test value" in rec.legacy_export_as_marc()
+            rec = get_record(recid)
+            marc = rec.legacy_export_as_marc()
+            for field in form:
+                if isinstance(field, TextAreaField):
+                    # If the field is associated with a marc field
+                    if field.has_recjson_key() or field.has_cook_function():
+                        assert "test " + field.name in marc
 
 
 TEST_SUITE = make_test_suite(TestWebDepositUtils)
