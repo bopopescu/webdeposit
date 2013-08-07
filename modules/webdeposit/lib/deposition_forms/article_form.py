@@ -29,15 +29,19 @@ __all__ = ['ArticleForm']
 
 class ArticleForm(Form):
 
-    doi = fields.DOIField(label=_('DOI'))
+    doi = fields.DOIField(label=_('DOI'), recjson_key='publication_info.DOI')
     publisher = fields.PublisherField(label=_('Publisher'),
-                                      validators=[Required()])
+                                      validators=[Required()],
+                                      recjson_key='imprint.publisher_name')
     journal = fields.JournalField(label=_('Journal Title'),
                                   validators=[Required()])
-    issn = fields.ISSNField(label=_('ISSN'))
-    title = fields.TitleField(label=_('Document Title'))
-    author = fields.AuthorField(label=_('Author'))
-    abstract = fields.AbstractField(label=_('Abstract'))
+    issn = fields.ISSNField(label=_('ISSN'), recjson_key='issn')
+    title = fields.TitleField(label=_('Document Title'),
+                              recjson_key='title.title')
+    author = fields.AuthorField(label=_('Author'),
+                                recjson_key='authors[0].full_name')
+    abstract = fields.AbstractField(label=_('Abstract'),
+                                    recjson_key='abstract.summary')
     pagesnum = fields.PagesNumberField(label=_('Number of Pages'))
     languages = [("en", _("English")),
                  ("fre", _("French")),
@@ -56,9 +60,10 @@ class ArticleForm(Form):
                  ("fin", _("Finnish")),
                  ("rus", _("Russian"))]
     language = fields.LanguageField(label=_('Language'), choices=languages)
-    date = fields.Date(label=_('Date of Document'), widget=date_widget)
+    date = fields.Date(label=_('Date of Document'), widget=date_widget,
+                       recjson_key='imprint.date')
     keywords = fields.KeywordsField(label=_('Keywords'))
-    notes = fields.NotesField(label=_('Notes'))
+    notes = fields.NotesField(label=_('Notes'), recjson_key='comment')
     plupload_file = fields.FileUploadField(widget=plupload_widget)
     submit = fields.SubmitField(label=_('Submit Article'),
                                 widget=bootstrap_submit)

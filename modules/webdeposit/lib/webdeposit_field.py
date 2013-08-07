@@ -87,6 +87,7 @@ Rec JSON key
 """
 
 from invenio.webdeposit_form import CFG_FIELD_FLAGS
+from invenio.webdeposit_cook_json_utils import cook_to_recjson
 
 __all__ = ['WebDepositField']
 
@@ -100,9 +101,9 @@ class WebDepositField(object):
         """
         Initialize WebDeposit field.
 
-        The attributes validators, processors, autocomplete and recjson_key
-        are only loaded from webdeposit_config if they are not provided (i.e.
-        evaluates to None).
+        Every field is associated with a marc field. To define this association you
+        have to specify the `recjson_key` for the bibfield's `JsonReader` or
+        the `cook_function` (for more complicated fields).
 
         @param placeholder: str, Placeholder text for input fields.
         @param icon: Name of icon (rendering of the icon is done by templates)
@@ -116,6 +117,8 @@ class WebDepositField(object):
         @type disabled: bool
         @param recjson_key: Name of recjson key
         @type recjson_key: str
+        @param cook_function: the cook function
+        @type cook_function: function
 
         @see http://wtforms.simplecodes.com/docs/1.0.4/validators.html for
              how to write validators.
@@ -129,6 +132,7 @@ class WebDepositField(object):
         self.autocomplete_func = kwargs.pop('autocomplete', None)
         self.processors = kwargs.pop('processors', None)
         self.recjson_key = kwargs.pop('recjson_key', None)
+        self.cook_function = kwargs.pop('cook_function', None)
 
         # Initialize empty message variables, which are usually modified
         # during the post-processing phases.
@@ -150,6 +154,12 @@ class WebDepositField(object):
             if value:
                 setattr(self.flags, flag, True)
 
+    def get_recjson_key(self):
+        return self.recjson_key
+
+    def has_cook_function(self):
+        return self.cook_function is not None
+
     def has_recjson_key(self):
         return self.recjson_key is not None
 
@@ -160,11 +170,14 @@ class WebDepositField(object):
 
         @param json_reader: BibField's JsonReader object
         """
-        cook_json_function = self.config.get_cook_json_function()
-        if cook_json_function is not None:
-            return cook_json_function(json_reader, self.data)
-        elif key is not None:  # Default behaviour
-            json_reader[key] = self.data
+        cook = None
+        if self.has_recjson_key():
+            cook = cook_to_recjson(self.get_recjson_key())
+        elif self.has_cook_function():
+            cook = self.cook_function
+
+        if cook is not None:
+            return cook(json_reader, self.data)
 
         return json_reader
 
