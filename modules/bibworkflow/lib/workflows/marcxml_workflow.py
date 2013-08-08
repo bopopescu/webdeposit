@@ -29,5 +29,5 @@ class marcxml_workflow(object):
     MARCXML records.
     """
     workflow = [convert_record(),
-                match_record]
+                approve_record]
     title = "Workflow for ingesting MARCXML records"

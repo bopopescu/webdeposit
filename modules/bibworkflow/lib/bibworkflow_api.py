@@ -220,7 +220,7 @@ def continue_oid(oid, start_point="continue_next", **kwargs):
 
 def continue_oid_delayed(oid, start_point="continue_next", **kwargs):
     """
-    Continue workflow asociated with object given by object id (oid).
+    Continue workflow associated with object given by object id (oid).
     It can start from previous, current or next task.
 
     Special custom keyword arguments can be given to the workflow engine
