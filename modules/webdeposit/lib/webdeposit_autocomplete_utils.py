@@ -29,17 +29,16 @@ def sherpa_romeo_publishers(value):
     return publishers
 
 
-def sherpa_romeo_journals(dummy_form, field, limit=50):
+def sherpa_romeo_journals(dummy_form, field, term, limit=50):
     """
     Search SHERPA/RoMEO for journal name
     """
-    if field.data:
+    if term:
         # SherpaRomeoSearch doesnt' like unicode
-        val = field.data
-        if isinstance(val, unicode):
-            val = val.encode('utf8')
+        if isinstance(term, unicode):
+            term = term.encode('utf8')
         s = SherpaRomeoSearch()
-        journals = s.search_journal(val)
+        journals = s.search_journal(term)
         if journals is not None:
             return journals[:limit]
     return []

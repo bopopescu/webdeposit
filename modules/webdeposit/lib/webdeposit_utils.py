@@ -235,7 +235,8 @@ def delete_workflow(dummy_user_id, uuid):
 #
 # Form loading and saving functions
 #
-def get_form(user_id, uuid, step=None, formdata=None, validate_draft=False):
+def get_form(user_id, uuid, step=None, formdata=None, load_draft=True,
+             validate_draft=False):
     """
     Returns the current state of the workflow in a form or a previous
     state (step)
@@ -253,20 +254,22 @@ def get_form(user_id, uuid, step=None, formdata=None, validate_draft=False):
         validated if this parameter is set to true.
     """
     # Get draft data
-    try:
-        webdeposit_draft = \
-            Workflow.get_extra_data(user_id=user_id,
-                                    uuid=uuid,
-                                    getter=draft_getter(step))
-    except (ValueError, NoResultFound):
-        # No drafts found
-        return None
+    if load_draft:
+        try:
+
+            webdeposit_draft = \
+                Workflow.get_extra_data(user_id=user_id,
+                                        uuid=uuid,
+                                        getter=draft_getter(step))
+        except (ValueError, NoResultFound):
+            # No drafts found
+            return None
 
     # If a field is not present in formdata, Form.process() will assume it is
     # blank instead of using the draft_data value. Most of the time we are only
     # submitting a single field in JSON via AJAX requests. We therefore reset
     # non-submitted fields to the draft_data value.
-    draft_data = webdeposit_draft['form_values']
+    draft_data = webdeposit_draft['form_values'] if load_draft else {}
     if formdata:
         formdata = MultiDict(formdata)
     form = forms[webdeposit_draft['form_type']](formdata=formdata, **draft_data)
@@ -274,12 +277,13 @@ def get_form(user_id, uuid, step=None, formdata=None, validate_draft=False):
         form.reset_field_data(exclude=formdata.keys())
 
     # Set field flags
-    for name, flags in webdeposit_draft.get('form_field_flags', {}).items():
-        for check_flags in CFG_FIELD_FLAGS:
-            if check_flags in flags:
-                setattr(form[name].flags, check_flags, True)
-            else:
-                setattr(form[name].flags, check_flags, False)
+    if load_draft:
+        for name, flags in webdeposit_draft.get('form_field_flags', {}).items():
+            for check_flags in CFG_FIELD_FLAGS:
+                if check_flags in flags:
+                    setattr(form[name].flags, check_flags, True)
+                else:
+                    setattr(form[name].flags, check_flags, False)
 
     # Process files
     if 'files' in draft_data:
@@ -389,13 +393,15 @@ def draft_field_get(user_id, uuid, field_name, subfield_name=None):
         return None
 
 
-def draft_form_autocomplete(user_id, uuid, field, term, limit):
+def draft_form_autocomplete(form_type, field, term, limit):
     """
     Auto-complete field value
     """
-    form = get_form(user_id, uuid=uuid, formdata={field: term})
-    form.validate()
-    return form.autocomplete(field, limit=limit)
+    try:
+        form = forms[form_type]()
+        return form.autocomplete(field, term, limit=limit)
+    except KeyError:
+        return []
 
 
 def draft_form_process_and_validate(user_id, uuid, data):

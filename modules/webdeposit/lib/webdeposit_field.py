@@ -246,20 +246,12 @@ class WebDepositField(object):
             for p in (extra_processors or []):
                 p(form, self, submit)
 
-    def can_autocomplete(self):
-        """
-        Determines if field has auto-completion capabilities.
-        """
-        return self.autocomplete_func or getattr(self, 'autocomplete', None)
-
-    def perform_autocomplete(self, form, limit=50, extra_func=None):
+    def perform_autocomplete(self, form, term, limit=50):
         """
         Run auto-complete method for field. Use Form.autocomplete() to
         perform auto-completion for a field, since it will take care of
         preparing the field with data.
         """
-        if self.autocomplete_func:
-            return self.autocomplete_func(form, self, limit=limit)
-        elif getattr(self, 'autocomplete', None):
-            return getattr(self, 'autocomplete')(form, limit=limit)
+        if self.autocomplete:
+            return self.autocomplete(form, self, term, limit=limit)
         return []

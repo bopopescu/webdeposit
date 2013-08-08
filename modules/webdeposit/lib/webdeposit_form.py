@@ -78,6 +78,8 @@ class WebDepositForm(Form):
         if not hasattr(self, '_drafting'):
             self._drafting = True
 
+        self.type = self.__class__.__name__
+
     def reset_field_data(self, exclude=[]):
         """
         Reset the fields.data value to that of field.object_data.
@@ -198,7 +200,7 @@ class WebDepositForm(Form):
                     extra = []
                 field.post_process(self, extra_processors=extra, submit=False)
 
-    def autocomplete(self, name, limit=50):
+    def autocomplete(self, name, term, limit=50):
         """
         Auto complete a form field.
 
@@ -208,6 +210,7 @@ class WebDepositForm(Form):
         if name in self._fields:
             return self._fields[name].perform_autocomplete(
                 self,
+                term,
                 limit=limit,
             )[:limit]
         return []

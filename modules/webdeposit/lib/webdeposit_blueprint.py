@@ -132,18 +132,17 @@ def check_status(uuid):
     return jsonify({"status": form_status})
 
 
-@blueprint.route('/autocomplete/<uuid>', methods=['GET', 'POST'])
+@blueprint.route('/autocomplete/<form_type>/<field>', methods=['GET', 'POST'])
 @blueprint.invenio_authenticated
-def autocomplete(uuid):
+def autocomplete(form_type, field):
     """ Returns a list with of suggestions for the field
         based on the current value
     """
     term = request.args.get('term')  # value
-    field_name = request.args.get('field')  # field
     limit = request.args.get('limit', 50, type=int)
 
     result = draft_form_autocomplete(
-        current_user.get_id(), uuid, field_name, term, limit
+        form_type, field, term, limit
     )
 
     return jsonify(results=result)

@@ -187,7 +187,7 @@ $(document).ready(function() {
     // Render autocomplete functions and ckeditor
 {%- for field in form %}
     {%- if field.autocomplete %}
-    webdeposit_field_autocomplete('input[name="{{ field.name }}"]', '{{ url_for("webdeposit.autocomplete", uuid=uuid, type=field.name) }}');
+    webdeposit_field_autocomplete('input[name="{{ field.name }}"]', '{{ url_for("webdeposit.autocomplete", form_type=form.type, field=field.name) }}');
     {%- endif %}
     {%- if field.ckeditor %}
     webdeposit_ckeditor_init( '{{ field.id }}', '{{ url_for("webdeposit.error_check", uuid=uuid) }}');
