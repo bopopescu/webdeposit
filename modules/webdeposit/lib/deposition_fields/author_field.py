@@ -29,7 +29,7 @@ class AuthorField(WebDepositField, TextField):
         defaults = dict(
             icon='icon-user',
             recjson_key='authors[0].full_name',
-            #FIXMEautocomplete=orcid_authors
+            autocomplete=orcid_authors
         )
         defaults.update(kwargs)
         super(AuthorField, self).__init__(**defaults)

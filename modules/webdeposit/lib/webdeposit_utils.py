@@ -320,7 +320,7 @@ def save_form(user_id, uuid, form):
                 if value is not None)
 
     draft_data_update = {
-        'form_values': form.json_data,
+        'form_values': json_data,
         'form_field_flags': form.flags,
     }
 
@@ -393,13 +393,13 @@ def draft_field_get(user_id, uuid, field_name, subfield_name=None):
         return None
 
 
-def draft_form_autocomplete(form_type, field, term, limit):
+def draft_form_autocomplete(form_type, field_name, term, limit):
     """
     Auto-complete field value
     """
     try:
         form = forms[form_type]()
-        return form.autocomplete(field, term, limit=limit)
+        return form.autocomplete(field_name, term, limit=limit)
     except KeyError:
         return []
 
@@ -427,9 +427,13 @@ def draft_form_process_and_validate(user_id, uuid, data):
     # Call Form.run_processors() which in turn will call Field.run_processors()
     # that allow fields to set flags (hide/show) and values of other fields
     # after the entire formdata has been processed and validated.
-    validated_flags, validated_data = (form.flags, form.data)
+    validated_flags, validated_data, validated_msgs = (
+        form.flags, form.data, form.messages
+    )
     form.post_process(fields=data.keys())
-    post_processed_flags, post_processed_data = (form.flags, form.data)
+    post_processed_flags, post_processed_data, post_processed_msgs = (
+        form.flags, form.data, form.messages
+    )
 
     # Save draft data
     save_form(user_id, uuid, form)
@@ -440,15 +444,12 @@ def draft_form_process_and_validate(user_id, uuid, data):
     changed_values = dict((name, value) for name, value in post_processed_data.items() if validated_data[name] != value)
     # Determine changed flags
     changed_flags = dict((name, flags) for name, flags in post_processed_flags.items() if validated_flags[name] != flags)
+    # Determine changed messages
+    changed_msgs = dict((name, messages) for name, messages in post_processed_msgs.items() if validated_msgs[name] != messages or name in process_field_names)
 
-    # Filter messages to only include submitted fields
-    messages = form.messages.copy()
-    for name in set(messages.keys())-set(process_field_names):
-        del messages[name]
-
-    result = {
-        'messages': messages,
-    }
+    result = {}
+    if changed_msgs:
+        result['messages'] = changed_msgs
     if changed_values:
         result['values'] = changed_values
     if changed_flags:
@@ -596,7 +597,7 @@ def get_all_drafts(user_id):
         query(Workflow.name,
               db.func.count(Workflow.uuid)).
         filter(Workflow.status != CFG_WORKFLOW_STATUS.FINISHED,
-               Workflow.user_id == 1).
+               Workflow.user_id == user_id).
         group_by(Workflow.name).
         all())
 

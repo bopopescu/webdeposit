@@ -32,6 +32,7 @@ pylib_DATA = __init__.py \
              pages_number_field.py \
              doi_field.py \
              record_id_field.py \
-             wtforms_field.py
+             wtforms_field.py \
+			 record_id_field.py
 
 CLEANFILES = *~ *.tmp *.pyc

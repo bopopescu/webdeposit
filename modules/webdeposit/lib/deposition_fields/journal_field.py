@@ -20,7 +20,7 @@
 from wtforms import TextField
 from invenio.webdeposit_field import WebDepositField
 from invenio.webdeposit_autocomplete_utils import sherpa_romeo_journals
-#from invenio.webdeposit_validation_utils import sherpa_romeo_journal_validate
+from invenio.webdeposit_processor_utils import sherpa_romeo_journal_process
 
 __all__ = ['JournalField']
 
@@ -29,7 +29,7 @@ class JournalField(WebDepositField, TextField):
     def __init__(self, **kwargs):
         defaults = dict(
             icon='icon-book',
-            #FIXMEvalidators=[sherpa_romeo_journal_validate], #FIXME
+            processors=[sherpa_romeo_journal_process],
             autocomplete=sherpa_romeo_journals,
         )
         defaults.update(kwargs)

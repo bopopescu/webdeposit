@@ -19,7 +19,7 @@
 
 from wtforms import TextField
 from invenio.webdeposit_field import WebDepositField
-#from invenio.webdeposit_validation_utils import record_id_validate
+from invenio.webdeposit_processor_utils import record_id_process
 
 __all__ = ['RecordIDField']
 
@@ -31,7 +31,7 @@ class RecordIDField(WebDepositField, TextField):
         defaults = dict(
             icon='icon-barcode',
             recjson_key='recid',
-            #FIXMEprocessors=[record_id_validate] #FIXME
+            processors=[record_id_process]
         )
         defaults.update(kwargs)
         super(RecordIDField, self).__init__(**defaults)

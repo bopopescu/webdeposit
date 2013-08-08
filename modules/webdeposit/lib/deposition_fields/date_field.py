@@ -32,7 +32,7 @@ class Date(WebDepositField, DateField):
             validators=[optional()]
         )
         defaults.update(kwargs)
-        super(Date, self).__init__(**kwargs)
+        super(Date, self).__init__(**defaults)
 
     def json_data(self):
         """

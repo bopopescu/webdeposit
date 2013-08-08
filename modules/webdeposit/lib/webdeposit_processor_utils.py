@@ -18,25 +18,29 @@
 ## 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 # from wtforms.validators import ValidationError, StopValidation, Regexp
+from werkzeug import MultiDict
 from invenio.dataciteutils import DataciteMetadata
-# from invenio.sherpa_romeo import SherpaRomeoSearch
-# from invenio.bibfield import get_record
+from invenio.sherpa_romeo import SherpaRomeoSearch
+from invenio.bibfield import get_record
 #
 # General purpose processors
 #
+
 
 def replace_field_data(field_name):
     """
     Returns a processor, which will replace the given field names value with
     the value from the field where the processor is installed.
     """
-    def _inner(form, field, submit):
+    def _inner(form, field, submit=False):
         getattr(form, field_name).data = field.data
     return _inner
 
 #
 # DOI-related processors
 #
+
+
 def datacite_dict_mapper(datacite, form, mapping):
     """
     Helper function to map DataCite metadata to form fields based on a mapping
@@ -51,7 +55,7 @@ class DataCiteLookup(object):
     administered.
     """
     def __init__(self, display_info=False, mapping=None,
-            mapping_func=None, exclude_prefix='10.5072'):
+                 mapping_func=None, exclude_prefix='10.5072'):
         self.display_info = display_info
         self.mapping = mapping or dict(
             get_publisher='publisher',
@@ -62,20 +66,20 @@ class DataCiteLookup(object):
         self.mapping_func = mapping_func or datacite_dict_mapper
         self.prefix = exclude_prefix
 
-    def __call__(self, form, field):
-        if not field.errors and field.data and not field.data.startswith(self.prefix +'/'):
+    def __call__(self, form, field, submit=False):
+        if not field.errors and field.data and not field.data.startswith(self.prefix + '/'):
             try:
                 datacite = DataciteMetadata(field.data)
                 if datacite.error:
                     if self.display_info:
-                        field.message_state = 'info'
-                        field.messages.append("DOI metadata could not be retrieved.")
+                        field.add_message('info',
+                                          "DOI metadata could not be retrieved.")
                     return
                 if self.mapping_func:
                     self.mapping_func(datacite, form, self.mapping)
                     if self.display_info:
-                        field.message_state = 'info'
-                        field.messages.append("DOI metadata successfully imported from DataCite.")
+                        field.add_message('info',
+                                          "DOI metadata successfully imported from DataCite.")
             except Exception:
                 # Ignore errors
                 pass
@@ -84,163 +88,160 @@ class DataCiteLookup(object):
 datacite_lookup = DataCiteLookup
 
 
-# def sherpa_romeo_issn_validate(field, dummy_form=None):
-#     value = field.data or ''
-#     if value == "" or value.isspace():
-#         return dict(error=0, error_message='')
-#     s = SherpaRomeoSearch()
-#     s.search_issn(value)
-#     if s.error:
-#         return dict(error=1, error_message=s.error_message)
+def sherpa_romeo_issn_process(form, field, submit=False):
+    value = field.data or ''
+    if value == "" or value.isspace():
+        return dict(error=0, error_message='')
+    s = SherpaRomeoSearch()
+    s.search_issn(value)
+    if s.error:
+        field.add_message(s.error_message, state='info')
+        return
 
-#     if s.get_num_hits() == 1:
-#         journal = s.parser.get_journals(attribute='jtitle')
-#         journal = journal[0]
-#         publisher = s.parser.get_publishers(journal=journal)
-#         if publisher is not None and publisher != []:
-#             return dict(error=0, error_message='',
-#                         fields=dict(journal=journal,
-#                                     publisher=publisher['name']))
-#         else:
-#             return dict(error=0, error_message='',
-#                         fields=dict(journal=journal))
+    if s.get_num_hits() == 1:
+        journal = s.parser.get_journals(attribute='jtitle')
+        journal = journal[0]
+        publisher = s.parser.get_publishers(journal=journal)
+        if publisher is not None and publisher != []:
+            if hasattr(form, 'journal'):
+                form.journal.data = journal
 
-#     return dict(info=1, info_message="Couldn't find Journal")
+            if hasattr(form, 'publisher'):
+                form.publisher.data = publisher['name']
+            return
+        else:
+            if hasattr(form, 'journal'):
+                form.journal.data = journal
+            return
 
-
-# def sherpa_romeo_publisher_validate(field, dummy_form=None):
-#     value = field.data or ''
-#     if value == "" or value.isspace():
-#         return dict(error=0, error_message='')
-#     s = SherpaRomeoSearch()
-#     s.search_publisher(value)
-#     if s.error:
-#         return dict(info=1, info_message=s.error_message)
-
-#     conditions = s.parser.get_publishers(attribute='conditions')
-#     if conditions is not None and s.get_num_hits() == 1:
-#         conditions = conditions[0]
-#     else:
-#         conditions = []
-#     if conditions != []:
-#         conditions_html = "<u>Conditions</u><br><ol>"
-#         if isinstance(conditions['condition'], str):
-#             conditions_html += "<li>" + conditions['condition'] + "</li>"
-#         else:
-#             for condition in conditions['condition']:
-#                 conditions_html += "<li>" + condition + "</li>"
-
-#         copyright_links = s.parser.get_publishers(attribute='copyrightlinks')
-#         if copyright_links is not None and copyright_links != []:
-#             copyright_links = copyright_links[0]
-#         else:
-#             copyright_links = None
-
-#         if isinstance(copyright_links, list):
-#             copyright_links_html = ""
-#             for copyright_link in copyright_links['copyrightlink']:
-#                 copyright_links_html += '<a href="' + copyright_link['copyrightlinkurl'] + \
-#                                         '">' + copyright_link['copyrightlinktext'] + "</a><br>"
-#         elif isinstance(copyright_links, dict):
-#             if isinstance(copyright_links['copyrightlink'], list):
-#                 for copyright_link in copyright_links['copyrightlink']:
-#                     copyright_links_html = '<a href="' + copyright_link['copyrightlinkurl'] + \
-#                                            '">' + copyright_link['copyrightlinktext'] + "</a><br>"
-#             else:
-#                 copyright_link = copyright_links['copyrightlink']
-#                 copyright_links_html = '<a href="' + copyright_link['copyrightlinkurl'] + \
-#                                        '">' + copyright_link['copyrightlinktext'] + "</a><br>"
-
-#         home_url = s.parser.get_publishers(attribute='homeurl')
-#         if home_url is not None and home_url != []:
-#             home_url = home_url[0]
-#             home_url = '<a href="' + home_url + '">' + home_url + "</a>"
-#         else:
-#             home_url = None
-
-#         info_html = ""
-#         if home_url is not None:
-#             info_html += "<p>" + home_url + "</p>"
-
-#         if conditions is not None:
-#             info_html += "<p>" + conditions_html + "</p>"
-
-#         if copyright_links is not None:
-#             info_html += "<p>" + copyright_links_html + "</p>"
-
-#         if info_html != "":
-#             return dict(error=0, error_message='',
-#                         info=1, info_message=info_html)
-#     return dict(error=0, error_message='')
+    field.add_message("Couldn't find Journal.", state='info')
 
 
-# def sherpa_romeo_journal_validate(field, dummy_form=None):
-#     value = field.data or ''
-#     if value == "" or value.isspace():
-#         return dict(error=0, error_message='')
+def sherpa_romeo_publisher_process(form, field, submit=False):
+    value = field.data or ''
+    if value == "" or value.isspace():
+        return
+    s = SherpaRomeoSearch()
+    s.search_publisher(value)
+    if s.error:
+        field.add_message(s.error_message, state='info')
 
-#     s = SherpaRomeoSearch()
-#     s.search_journal(value, 'exact')
-#     if s.error:
-#         return dict(info=1, info_message=s.error_message)
+    conditions = s.parser.get_publishers(attribute='conditions')
+    if conditions is not None and s.get_num_hits() == 1:
+        conditions = conditions[0]
+    else:
+        conditions = []
+    if conditions != []:
+        conditions_html = "<u>Conditions</u><br><ol>"
+        if isinstance(conditions['condition'], str):
+            conditions_html += "<li>" + conditions['condition'] + "</li>"
+        else:
+            for condition in conditions['condition']:
+                conditions_html += "<li>" + condition + "</li>"
 
-#     if s.get_num_hits() == 1:
-#         issn = s.parser.get_journals(attribute='issn')
-#         if issn != [] and issn is not None:
-#             issn = issn[0]
-#             publisher = s.parser.get_publishers(journal=value)
-#             if publisher is not None and publisher != []:
-#                 return dict(error=0, error_message='',
-#                             fields=dict(issn=issn,
-#                                         publisher=publisher['name']))
-#             return dict(error=0, error_message='',
-#                         info=1, info_message="Journal's Publisher not found",
-#                         fields=dict(publisher="", issn=issn))
-#         else:
-#             return dict(info=1, info_message="Couldn't find ISSN")
-#     return dict(error=0, error_message='')
+        copyright_links = s.parser.get_publishers(attribute='copyrightlinks')
+        if copyright_links is not None and copyright_links != []:
+            copyright_links = copyright_links[0]
+        else:
+            copyright_links = None
+
+        if isinstance(copyright_links, list):
+            copyright_links_html = ""
+            for copyright_link in copyright_links['copyrightlink']:
+                copyright_links_html += '<a href="' + copyright_link['copyrightlinkurl'] + \
+                                        '">' + copyright_link['copyrightlinktext'] + "</a><br>"
+        elif isinstance(copyright_links, dict):
+            if isinstance(copyright_links['copyrightlink'], list):
+                for copyright_link in copyright_links['copyrightlink']:
+                    copyright_links_html = '<a href="' + copyright_link['copyrightlinkurl'] + \
+                                           '">' + copyright_link['copyrightlinktext'] + "</a><br>"
+            else:
+                copyright_link = copyright_links['copyrightlink']
+                copyright_links_html = '<a href="' + copyright_link['copyrightlinkurl'] + \
+                                       '">' + copyright_link['copyrightlinktext'] + "</a><br>"
+
+        home_url = s.parser.get_publishers(attribute='homeurl')
+        if home_url is not None and home_url != []:
+            home_url = home_url[0]
+            home_url = '<a href="' + home_url + '">' + home_url + "</a>"
+        else:
+            home_url = None
+
+        info_html = ""
+        if home_url is not None:
+            info_html += "<p>" + home_url + "</p>"
+
+        if conditions is not None:
+            info_html += "<p>" + conditions_html + "</p>"
+
+        if copyright_links is not None:
+            info_html += "<p>" + copyright_links_html + "</p>"
+
+        if info_html != "":
+            field.add_message(info_html, state='info')
 
 
-# def number_validate(field, dummy_form=None, error_message='It must be a number!'):
-#     value = field.data or ''
-#     if value == "" or value.isspace():
-#         return dict(error=0, error_message='')
+def sherpa_romeo_journal_process(form, field, submit=False):
+    value = field.data or ''
+    if value == "" or value.isspace():
+        return
 
-#     def is_number(s):
-#         try:
-#             float(s)
-#             return True
-#         except ValueError:
-#             return False
+    s = SherpaRomeoSearch()
+    s.search_journal(value, 'exact')
+    if s.error:
+        field.add_message(s.error_message, state='info')
+        return
 
-#     if not is_number(value):
-#         try:
-#             field.errors.append(error_message)
-#         except AttributeError:
-#             field.errors = list(field.process_errors)
-#             field.errors.append(error_message)
-#         return dict(error=1,
-#                     error_message=error_message)
-#     else:
-#         return dict(error=0, error_message='')
+    if s.get_num_hits() == 1:
+        issn = s.parser.get_journals(attribute='issn')
+        if issn != [] and issn is not None:
+            issn = issn[0]
+            publisher = s.parser.get_publishers(journal=value)
+            if publisher is not None and publisher != []:
+                if hasattr(form, 'issn'):
+                    form.issn.data = issn
+
+                if hasattr(form, 'publisher'):
+                    form.publisher.data = publisher['name']
+                    form.publisher.post_process(form)
+                return
+
+            field.add_message("Journal's Publisher not found", state='info')
+            if hasattr(form, 'issn'):
+                form.issn.data = issn
+            if hasattr(form, 'publisher'):
+                form.publisher.data = publisher
+                form.publisher.post_process(form)
+        else:
+            field.add_message("Couldn't find ISSN.", state='info')
 
 
-# def record_id_validate(field, form=None):
-#     value = field.data or ''
-#     is_number = number_validate(field)['error'] == 0 \
-#         and (value != "" or not value.isspace())
+def record_id_process(form, field, submit=False):
+    value = field.data or ''
+    if value == "" or value.isspace():
+        return
 
-#     if is_number:
-#         json_reader = get_record(value)
-#     else:
-#         return dict(error=1, error_message="Record id must be a number!")
-#     if json_reader is not None:
-#         webdeposit_json = form.uncook_json(json_reader, {}, value)
-#         #FIXME: update current json
+    def is_number(s):
+        try:
+            float(s)
+            return True
+        except ValueError:
+            return False
 
-#         return dict(info=1,
-#                     info_message='<a href="/record/"' + value +
-#                                  '>Record</a> loaded successfully',
-#                     fields=webdeposit_json)
-#     else:
-#         return dict(info=1, info_message="Record doesn't exist")
+    if is_number(field.data):
+        json_reader = get_record(value)
+    else:
+        field.add_message("Record id must be a number!", state='error')
+        return
+
+    if json_reader is not None:
+        webdeposit_json = form.uncook_json(json_reader, {}, value)
+        #FIXME: update current json, past self, what do you mean?? :S
+
+        field.add_message('<a href="/record/"' + value +
+                          '>Record</a> was loaded successfully',
+                          state='info')
+
+        form.process(MultiDict(webdeposit_json))
+    else:
+        field.add_message("Record doesn't exist", state='info')

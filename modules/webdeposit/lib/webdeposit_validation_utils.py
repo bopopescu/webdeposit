@@ -56,6 +56,22 @@ class RequiredIf(object):
             pass
 
 
+def number_validate(form, field, submit=False,
+                    error_message='It must be a number!'):
+    value = field.data or ''
+    if value == "" or value.isspace():
+        return
+
+    def is_number(s):
+        try:
+            float(s)
+            return True
+        except ValueError:
+            return False
+
+    if not is_number(value):
+        raise ValidationError(error_message)
+
 #
 # DOI-related validators
 #

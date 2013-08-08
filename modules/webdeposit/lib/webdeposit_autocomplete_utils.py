@@ -21,15 +21,17 @@ from invenio.sherpa_romeo import SherpaRomeoSearch
 from invenio.orcid import OrcidSearch
 
 
-def sherpa_romeo_publishers(value):
-    sherpa_romeo = SherpaRomeoSearch()
-    publishers = sherpa_romeo.search_publisher(value)
-    if publishers is None:
-        return []
-    return publishers
+def sherpa_romeo_publishers(dummy_form, term, limit=50):
+    if term:
+        sherpa_romeo = SherpaRomeoSearch()
+        publishers = sherpa_romeo.search_publisher(term)
+        if publishers is None:
+            return []
+        return publishers
+    return []
 
 
-def sherpa_romeo_journals(dummy_form, field, term, limit=50):
+def sherpa_romeo_journals(dummy_form, term, limit=50):
     """
     Search SHERPA/RoMEO for journal name
     """
@@ -44,7 +46,9 @@ def sherpa_romeo_journals(dummy_form, field, term, limit=50):
     return []
 
 
-def orcid_authors(value):
-    orcid = OrcidSearch()
-    orcid.search_authors(value)
-    return orcid.get_authors_names()
+def orcid_authors(dummy_form, term, limit=50):
+    if term:
+        orcid = OrcidSearch()
+        orcid.search_authors(term)
+        return orcid.get_authors_names()
+    return []

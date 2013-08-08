@@ -200,15 +200,15 @@ class WebDepositForm(Form):
                     extra = []
                 field.post_process(self, extra_processors=extra, submit=False)
 
-    def autocomplete(self, name, term, limit=50):
+    def autocomplete(self, field_name, term, limit=50):
         """
         Auto complete a form field.
 
         Assumes that formdata has already been loaded by into the form, so that
         the search term can be access by field.data.
         """
-        if name in self._fields:
-            return self._fields[name].perform_autocomplete(
+        if field_name in self._fields:
+            return self._fields[field_name].perform_autocomplete(
                 self,
                 term,
                 limit=limit,
@@ -220,31 +220,30 @@ class WebDepositForm(Form):
         """
         Return a dictionary of form messages.
         """
-        if self._messages is None:
-            self._messages = dict(
+        _messages = dict(
+            (
+                name,
+                {
+                    'state': f.message_state
+                             if hasattr(f, 'message_state') and f.message_state
+                             else '',
+                    'messages': f.messages,
+                }
+            ) for name, f in self._fields.items()
+        )
+
+        if self.errors:
+            _messages.update(dict(
                 (
                     name,
                     {
-                        'state': f.message_state
-                                 if hasattr(f, 'message_state') and f.message_state
-                                 else '',
-                        'messages': f.messages,
+                        'state': 'error',
+                        'messages': messages,
                     }
-                ) for name, f in self._fields.items()
-            )
+                ) for name, messages in self.errors.items()
 
-            if self.errors:
-                self._messages.update(dict(
-                    (
-                        name,
-                        {
-                            'state': 'error',
-                            'messages': messages,
-                        }
-                    ) for name, messages in self.errors.items()
-
-                ))
-        return self._messages
+            ))
+        return _messages
 
     @property
     def flags(self):

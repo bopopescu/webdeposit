@@ -19,15 +19,19 @@
 
 from wtforms import TextField
 from invenio.webdeposit_field import WebDepositField
-#from invenio.webdeposit_validation_utils import sherpa_romeo_publisher_validate
-#from invenio.webdeposit_autocomplete_utils import sherpa_romeo_publishers
+from invenio.webdeposit_processor_utils import sherpa_romeo_publisher_process
+from invenio.webdeposit_autocomplete_utils import sherpa_romeo_publishers
 
 __all__ = ['PublisherField']
 
 
 class PublisherField(WebDepositField, TextField):
     def __init__(self, **kwargs):
-        defaults = dict(icon='icon-certificate')
+        defaults = dict(
+            icon='icon-certificate',
+            processors=[sherpa_romeo_publisher_process],
+            autocomplete=sherpa_romeo_publishers
+        )
         defaults.update(kwargs)
         super(PublisherField, self).__init__(**defaults)
 

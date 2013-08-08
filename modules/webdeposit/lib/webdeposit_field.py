@@ -129,7 +129,7 @@ class WebDepositField(object):
         self.placeholder = kwargs.pop('placeholder', None)
         self.group = kwargs.pop('group', None)
         self.icon = kwargs.pop('icon', None)
-        self.autocomplete_func = kwargs.pop('autocomplete', None)
+        self.autocomplete = kwargs.pop('autocomplete', None)
         self.processors = kwargs.pop('processors', None)
         self.recjson_key = kwargs.pop('recjson_key', None)
         self.cook_function = kwargs.pop('cook_function', None)
@@ -211,7 +211,6 @@ class WebDepositField(object):
             kwargs['disabled'] = "disabled"
         return super(WebDepositField, self).__call__(*args, **kwargs)
 
-
     def post_process(self, form, extra_processors=[], submit=False):
         """
         Post process form before saving.
@@ -253,5 +252,14 @@ class WebDepositField(object):
         preparing the field with data.
         """
         if self.autocomplete:
-            return self.autocomplete(form, self, term, limit=limit)
+            return self.autocomplete(form, term, limit=limit)
         return []
+
+    def add_message(self, state, message):
+        """
+        Adds a message to display for the field.
+        The state can be info, error or success.
+        """
+        assert state in ['info', 'error', 'success']
+        self.message_state = state
+        self.messages.append(message)
