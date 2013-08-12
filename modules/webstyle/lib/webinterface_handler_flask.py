@@ -112,6 +112,9 @@ def create_invenio_flask_app(**kwargs_config):
         static_url_path='',
         static_folder=CFG_WEBDIR)
 
+    from urlparse import urlparse
+    _app.config['SERVER_NAME'] = urlparse(CFG_SITE_URL).netloc
+
     ## Update application config from parameters.
     _app.config.update(kwargs_config)
 
