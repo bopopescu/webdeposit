@@ -239,6 +239,7 @@ class WebAPIKey(db.Model):
             register_customevent("apikeyusage", [uid, api_key, path, url_req])
             return uid
         else:
+            print 'wrong signature'
             return -1
 
     @classmethod
@@ -271,6 +272,9 @@ class WebAPIKey(db.Model):
 
         @return: Signed request string or, in case of error, ''
         """
+
+        if params is None:
+            params = {}
 
         if params is None:
             params = {}
@@ -312,7 +316,6 @@ class WebAPIKey(db.Model):
 
         signature = cls.get_server_signature(secret_key, url)
         params['signature'] = signature
-
         query = urlencode(params)
         return urlunparse((parsed_url.scheme,
                            parsed_url.netloc,
