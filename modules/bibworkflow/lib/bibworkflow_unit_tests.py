@@ -70,15 +70,28 @@ distances from it.
 
     def tearDown(self):
         """ Clean up created objects """
-        from invenio.bibworkflow_model import BibWorkflowObject, Workflow
+        from invenio.bibworkflow_model import (BibWorkflowObject,
+                                               Workflow,
+                                               BibWorkflowObjectLogging)
         from invenio.bibworkflow_utils import get_redis_keys, set_up_redis
 
         workflows = Workflow.get(Workflow.module_name == "unit_tests").all()
         for workflow in workflows:
-            db.session.query(BibWorkflowObject).filter(BibWorkflowObject.id_workflow==workflow.uuid).delete()
+            BibWorkflowObject.query.filter(
+                BibWorkflowObject.id_workflow == workflow.uuid
+            ).delete()
+
+            objects = BibWorkflowObjectLogging.query.filter(
+                BibWorkflowObject.id_workflow == workflow.uuid
+            ).all()
+            for obj in objects:
+                db.session.delete(obj)
+            db.session.delete(workflow)
         # Deleting dumy object created in tests
-        db.session.query(BibWorkflowObject).filter(BibWorkflowObject.id_workflow.in_([11,123,253])).delete(synchronize_session='fetch')
-        Workflow.get(Workflow.module_name == "unit_tests").delete()
+        db.session.query(BibWorkflowObject).filter(
+            BibWorkflowObject.id_workflow.in_([11, 123, 253])
+        ).delete(synchronize_session='fetch')
+        Workflow.query.filter(Workflow.module_name == "unit_tests").delete()
         db.session.commit()
 
         rs = set_up_redis()
