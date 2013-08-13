@@ -28,6 +28,7 @@ pylib_DATA = __init__.py \
              webdeposit_field_widgets.py \
              webdeposit_filter_utils.py \
              webdeposit_form.py \
+             webdeposit_form_unit_tests.py \
              webdeposit_load_deposition_types.py \
              webdeposit_load_fields.py \
              webdeposit_load_forms.py \

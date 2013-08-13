@@ -291,13 +291,8 @@ def get_form(user_id, uuid, step=None, formdata=None, load_draft=True,
         form.reset_field_data(exclude=formdata.keys())
 
     # Set field flags
-    if load_draft:
-        for name, flags in webdeposit_draft.get('form_field_flags', {}).items():
-            for check_flags in CFG_FIELD_FLAGS:
-                if check_flags in flags:
-                    setattr(form[name].flags, check_flags, True)
-                else:
-                    setattr(form[name].flags, check_flags, False)
+    if load_draft and 'form_field_flags' in webdeposit_draft:
+        form.set_flags(webdeposit_draft['form_field_flags'])
 
     # Process files
     if 'files' in draft_data:
@@ -335,7 +330,7 @@ def save_form(user_id, uuid, form):
 
     draft_data_update = {
         'form_values': json_data,
-        'form_field_flags': form.flags,
+        'form_field_flags': form.get_flags(),
     }
 
     Workflow.set_extra_data(
@@ -412,7 +407,8 @@ def draft_form_autocomplete(form_type, field_name, term, limit):
     """
     try:
         form = forms[form_type]()
-        return form.autocomplete(field_name, term, limit=limit)
+        result = form.autocomplete(field_name, term, limit=limit)
+        return result if result is not None else []
     except KeyError:
         return []
 
@@ -441,11 +437,11 @@ def draft_form_process_and_validate(user_id, uuid, data):
     # that allow fields to set flags (hide/show) and values of other fields
     # after the entire formdata has been processed and validated.
     validated_flags, validated_data, validated_msgs = (
-        form.flags, form.data, form.messages
+        form.get_flags(), form.data, form.messages
     )
-    form.post_process(fields=data.keys())
+    form.post_process(formfields=data.keys())
     post_processed_flags, post_processed_data, post_processed_msgs = (
-        form.flags, form.data, form.messages
+        form.get_flags(), form.data, form.messages
     )
 
     # Save draft data

@@ -21,6 +21,7 @@
 
 import os
 
+import json
 from flask import current_app, \
     render_template, \
     request, \
@@ -29,7 +30,8 @@ from flask import current_app, \
     url_for, \
     flash, \
     send_file, \
-    abort
+    abort, \
+    make_response
 from werkzeug.utils import secure_filename
 from uuid import uuid1 as new_uuid
 
@@ -132,9 +134,9 @@ def check_status(uuid):
     return jsonify({"status": form_status})
 
 
-@blueprint.route('/autocomplete/<form_type>/<field>', methods=['GET', 'POST'])
+@blueprint.route('/autocomplete/<form_type>/<field_name>', methods=['GET', 'POST'])
 @blueprint.invenio_authenticated
-def autocomplete(form_type, field):
+def autocomplete(form_type, field_name):
     """ Returns a list with of suggestions for the field
         based on the current value
     """
@@ -142,10 +144,13 @@ def autocomplete(form_type, field):
     limit = request.args.get('limit', 50, type=int)
 
     result = draft_form_autocomplete(
-        form_type, field, term, limit
+        form_type, field_name, term, limit
     )
 
-    return jsonify(results=result)
+    # jsonify doesn't return lists as top-level items.
+    resp = make_response(json.dumps(result, indent=None if request.is_xhr else 2))
+    resp.mimetype = "application/json"
+    return resp
 
 
 @blueprint.route('/save/<uuid>', methods=['POST'])

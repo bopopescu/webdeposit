@@ -86,18 +86,19 @@ Rec JSON key
             super(MyField, self).__init__(**defaults)
 """
 
+from wtforms import Field
 from invenio.webdeposit_form import CFG_FIELD_FLAGS
 from invenio.webdeposit_cook_json_utils import cook_to_recjson
 
 __all__ = ['WebDepositField']
 
 
-class WebDepositField(object):
+class WebDepositField(Field):
     """
     Base field that all webdeposit fields must inherit from.
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, *args, **kwargs):
         """
         Initialize WebDeposit field.
 
@@ -133,11 +134,12 @@ class WebDepositField(object):
         self.processors = kwargs.pop('processors', None)
         self.recjson_key = kwargs.pop('recjson_key', None)
         self.cook_function = kwargs.pop('cook_function', None)
+        self.widget_classes = kwargs.pop('widget_classes', None)
 
         # Initialize empty message variables, which are usually modified
         # during the post-processing phases.
-        self.messages = []
-        self.message_state = ''
+        self._messages = []
+        self._message_state = ''
 
         # Get flag values (e.g. hidden, disabled) before super() call.
         # See CFG_FIELD_FLAGS for all defined flags.
@@ -146,7 +148,7 @@ class WebDepositField(object):
             flag_values[flag] = kwargs.pop(flag, False)
 
         # Call super-constructor.
-        super(WebDepositField, self).__init__(**kwargs)
+        super(WebDepositField, self).__init__(*args, **kwargs)
 
         # Set flag values after super() call to ensure, flags set during
         # super() are overwritten.
@@ -209,9 +211,27 @@ class WebDepositField(object):
             kwargs['placeholder'] = self.placeholder
         if 'disabled' not in kwargs and self.flags.disabled:
             kwargs['disabled'] = "disabled"
+        if 'class_' in kwargs and self.widget_classes:
+            kwargs['class_'] = kwargs['class_'] + self.widget_classes
+        elif self.widget_classes:
+            kwargs['class_'] = self.widget_classes
+        if self.autocomplete:
+            kwargs['data-autocomplete'] = "1"
         return super(WebDepositField, self).__call__(*args, **kwargs)
 
-    def post_process(self, form, extra_processors=[], submit=False):
+    def reset_field_data(self, exclude=[]):
+        """
+        Reset the fields.data value to that of field.object_data.
+
+        Usually not called directly, but rather through Form.reset_field_data()
+
+        @param exclude: List of formfield names to exclude.
+        """
+        if self.name not in exclude:
+            self.data = self.object_data
+
+    def post_process(self, form=None, formfields=[], extra_processors=[],
+                     submit=False):
         """
         Post process form before saving.
 
@@ -232,34 +252,60 @@ class WebDepositField(object):
 
             super(MyField, self).post_process(form, extra_processors=extra_processors)
         """
-        # Run post-processors (either defined)
-        stop = False
-        for p in (self.processors or []):
-            try:
-                p(form, self, submit)
-            except StopIteration:
-                stop = True
-                break
+        # Check if post processing should run for this field
+        if self.name in formfields or not formfields:
+            stop = False
+            for p in (self.processors or []):
+                try:
+                    p(form, self, submit)
+                except StopIteration:
+                    stop = True
+                    break
 
-        if not stop:
-            for p in (extra_processors or []):
-                p(form, self, submit)
+            if not stop:
+                for p in (extra_processors or []):
+                    p(form, self, submit)
 
-    def perform_autocomplete(self, form, term, limit=50):
+    def perform_autocomplete(self, form, name, term, limit=50):
         """
-        Run auto-complete method for field. Use Form.autocomplete() to
-        perform auto-completion for a field, since it will take care of
-        preparing the field with data.
+        Run auto-complete method for field. This method should not be called
+        directly, instead use Form.autocomplete().
         """
-        if self.autocomplete:
-            return self.autocomplete(form, term, limit=limit)
-        return []
+        if name == self.name and self.autocomplete:
+            return self.autocomplete(form, self, term, limit=limit)
+        return None
 
-    def add_message(self, state, message):
+    def add_message(self, msg, state=None):
         """
-        Adds a message to display for the field.
-        The state can be info, error or success.
+        Add a message
+
+        @param msg: The message to set
+        @param state: State of message; info, warning, error, success.
         """
-        assert state in ['info', 'error', 'success']
-        self.message_state = state
-        self.messages.append(message)
+        self._messages.append(msg)
+        if state:
+            self._message_state = state
+
+    def set_flags(self, flags):
+        """
+        Set field flags
+        """
+        field_flags = flags.pop(self.name, [])
+        for check_flag in CFG_FIELD_FLAGS:
+            setattr(self.flags, check_flag, check_flag in field_flags)
+
+    @property
+    def messages(self):
+        """
+        Retrieve field messages
+        """
+        if self.errors:
+            return { self.name: dict(
+                state='error',
+                messages=self.errors
+            )}
+        else:
+            return { self.name: dict(
+                state=getattr(self, '_message_state', ''),
+                messages=self._messages
+            )}

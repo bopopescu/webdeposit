@@ -72,14 +72,12 @@ class DataCiteLookup(object):
                 datacite = DataciteMetadata(field.data)
                 if datacite.error:
                     if self.display_info:
-                        field.add_message('info',
-                                          "DOI metadata could not be retrieved.")
+                        field.add_message("DOI metadata could not be retrieved.", state='info')
                     return
                 if self.mapping_func:
                     self.mapping_func(datacite, form, self.mapping)
                     if self.display_info:
-                        field.add_message('info',
-                                          "DOI metadata successfully imported from DataCite.")
+                        field.add_message("DOI metadata successfully imported from DataCite.", state='info')
             except Exception:
                 # Ignore errors
                 pass

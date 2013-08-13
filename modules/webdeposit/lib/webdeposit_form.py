@@ -40,6 +40,12 @@ See more about WTForm field flags on:
 http://wtforms.simplecodes.com/docs/1.0.4/fields.html#wtforms.fields.Field.flags
 """
 
+def filter_flags(field):
+    """
+    Return a list of flags (from CFG_FIELD_FLAGS) set on a field.
+    """
+    return filter(lambda flag: getattr(field.flags, flag), CFG_FIELD_FLAGS)
+
 """
 Form customization
 
@@ -56,10 +62,8 @@ class WebDepositForm(Form):
 
     """ Generic WebDeposit Form class """
 
-    def __init__(self, **kwargs):
-        super(WebDepositForm, self).__init__(**kwargs)
-        self._messages = None
-
+    def __init__(self, *args, **kwargs):
+        super(WebDepositForm, self).__init__(*args, **kwargs)
         self.groups_meta = {}
         if hasattr(self, 'groups'):
             for idx, group in enumerate(self.groups):
@@ -90,9 +94,8 @@ class WebDepositForm(Form):
 
         @param exclude: List of field names to exclude.
         """
-        for name, field in self._fields.items():
-            if name not in exclude:
-                field.data = field.object_data
+        for field in self._fields.values():
+            field.reset_field_data(exclude=exclude)
 
     def cook_json(self, json_reader):
         for field in self._fields.values():
@@ -154,18 +157,6 @@ class WebDepositForm(Form):
 
         return field_groups
 
-    @property
-    def json_data(self):
-        """
-        Return form data in a format suitable for the standard JSON encoder, by
-        calling Field.json_data() on each field if it exists, otherwise is uses
-        the value of Field.data.
-        """
-        return dict(
-            (name, f.json_data() if getattr(f, 'json_data', None) else f.data)
-            for name, f in self._fields.items()
-        )
-
     def get_template(self):
         """
         Get template to render this form.
@@ -174,87 +165,133 @@ class WebDepositForm(Form):
         By default, it will render the template `webdeposit_add.html`
 
         """
-
         return [self.template]
 
-    def post_process(self, fields=[], submit=False):
+    def post_process(self, form=None, formfields=[], submit=False):
         """
         Run form post-processing by calling `post_process` on each field,
         passing any extra `Form.post_process_<fieldname>` processors to the
         field.
 
-        If ``fields'' are specified, only the given fields' processors will be
-        run (which may touch all fields of the form).
+        If ``formfields'' are specified, only the given fields' processors will
+        be run (which may touch all fields of the form).
 
         The post processing allows the form to alter other fields in the form,
         via e.g. contacting external services (e.g a DOI field could retrieve
         title, authors from CrossRef/DataCite).
         """
-        for name, field, in self._fields.items():
-            if not fields or name in fields:
-                inline = getattr(
-                    self.__class__, 'post_process_%s' % name, None)
-                if inline is not None:
-                    extra = [inline]
-                else:
-                    extra = []
-                field.post_process(self, extra_processors=extra, submit=False)
+        if form is None:
+            form = self
 
-    def autocomplete(self, field_name, term, limit=50):
+        for name, field, in self._fields.items():
+            inline = getattr(
+                self, 'post_process_%s' % name, None)
+            if inline is not None:
+                extra = [inline]
+            else:
+                extra = []
+            field.post_process(form, formfields=formfields,
+                               extra_processors=extra, submit=submit)
+
+    def autocomplete(self, name, term, limit=50, _form=None):
         """
         Auto complete a form field.
 
-        Assumes that formdata has already been loaded by into the form, so that
-        the search term can be access by field.data.
+        Example::
+
+            form = FormClass()
+            form.autocomplete('related_identifiers-1-scheme','do')
+
+        Implementation notes:
+        The form will first try a fast lookup by field name in the form, and
+        delegate the auto-completion to the field. This will work for all but
+        field enclosures (FieldList and FormField). If the first lookup fails,
+        each field enclosure is checked if they can auto-complete the term,
+        which usually involves parsing the field name and generating a
+        stub-field (see further details in wtforms_field module).
+
+        @param name: Name of field (e.g. title or related_identifiers-1-scheme).
+        @param term: Term to return auto-complete results for
+        @param limit: Maximum number of results to return
+        @return: None in case field could not be found, otherwise a (possibly
+            empty) list of results.
         """
-        if field_name in self._fields:
-            return self._fields[field_name].perform_autocomplete(
-                self,
+        if name in self._fields:
+            res = self._fields[name].perform_autocomplete(
+                _form or self,
+                name,
                 term,
                 limit=limit,
-            )[:limit]
-        return []
+            )
+            if res is not None:
+                return res[:limit]
+        else:
+            for f in self._fields.values():
+                # Only check field enclosures which cannot be found with above
+                # method.
+                if name.startswith(f.name):
+                    res = f.perform_autocomplete(
+                        _form or self,
+                        name,
+                        term,
+                        limit=limit,
+                    )
+                    if res is not None:
+                        return res[:limit]
+        return None
+
+    def get_flags(self, filter_func=filter_flags):
+        """
+        Return dictionary of fields and their set flags
+        """
+        flags = {}
+
+        for f in self._fields.values():
+            if hasattr(f, 'get_flags'):
+                flags.update(f.get_flags(filter_func=filter_func))
+            else:
+                flags.update({f.name: filter_func(f)})
+
+        return flags
+
+    def set_flags(self, flags):
+        """
+        Set flags on fields
+
+        @param flags: Dictionary of fields and their set flags (same structure
+                      as returned by get_flags).
+        """
+        for f in self._fields.values():
+            f.set_flags(flags)
+
+    @property
+    def json_data(self):
+        """
+        Return form data in a format suitable for the standard JSON encoder, by
+        calling Field.json_data() on each field if it exists, otherwise is uses
+        the value of Field.data.
+        """
+        return dict(
+            (name, f.json_data if getattr(f, 'json_data', None) else f.data)
+            for name, f in self._fields.items()
+        )
 
     @property
     def messages(self):
         """
         Return a dictionary of form messages.
         """
-        _messages = dict(
+        _messages = {}
+
+        for f in self._fields.values():
+            _messages.update(f.messages)
+
+        return dict([
             (
-                name,
-                {
-                    'state': f.message_state
-                             if hasattr(f, 'message_state') and f.message_state
-                             else '',
-                    'messages': f.messages,
-                }
-            ) for name, f in self._fields.items()
-        )
+                fname,
+                msgs if msgs.get('state','') or msgs.get('messages', '') else {}
+            ) for fname, msgs in _messages.items()
+        ])
 
-        if self.errors:
-            _messages.update(dict(
-                (
-                    name,
-                    {
-                        'state': 'error',
-                        'messages': messages,
-                    }
-                ) for name, messages in self.errors.items()
-
-            ))
         return _messages
 
-    @property
-    def flags(self):
-        """
-        Return dictionary of fields and their set flags
-
-        Note only flags from CFG_FIELD_FLAGS that is set to True are returned.
-        """
-        return dict(
-            (
-                name,
-                filter(lambda flag: getattr(f.flags, flag), CFG_FIELD_FLAGS)
-            ) for name, f in self._fields.items()
-        )

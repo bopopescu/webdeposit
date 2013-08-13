@@ -32,8 +32,7 @@ def missing_doi_warning(dummy_form, field, dummy_submit=False):
     asking people to provide it.
     """
     if not field.errors and not field.data:
-        field.message_state = "warning"
-        field.messages.append("Please provide a DOI if possible.")
+        field.add_message("Please provide a DOI if possible.", state="warning")
         raise StopIteration()
 
 
