@@ -142,12 +142,12 @@ class PreReservedDOI(object):
 
     def __call__(self, form, field):
         attr_value = getattr(form, self.field_name).data
-        if attr_value and field.data and field.data != attr_value and field.data.startswith("%s/" % self.prefix):
+        if attr_value and field.data and field.data != attr_value \
+           and field.data.startswith("%s/" % self.prefix):
             raise StopValidation(self.message)
         # Stop further validation if DOI equals pre-reserved DOI.
         if attr_value and field.data and field.data == attr_value:
             raise StopValidation()
-
 
 #
 # Aliases

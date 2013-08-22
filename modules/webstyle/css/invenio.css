@@ -3980,4 +3980,40 @@ img.login_button_big {
 img.login_button_small {
     border-radius: 2px;
 }
+
+.empty-element {
+   display: none;
+}
+
+.iconlink {
+   text-decoration: none;
+}
+
+.iconlink:hover {
+   text-decoration: none;
+   cursor: pointer;
+}
+
+.sortlink:hover {
+   cursor: move;
+}
+
+.remove-element {
+   padding-left: 10px;
+}
+
+.add-element {
+   text-decoration: none;
+}
+
+.add-element:hover {
+   cursor: pointer;
+   text-decoration: none;
+}
+
+.error:input {
+   border-color: #b94a48;
+   color: #b94a48;
+}
+
 /* end of invenio.css */

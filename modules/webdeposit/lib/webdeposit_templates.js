@@ -8,6 +8,6 @@ var tpl_flash_message = Hogan.compile('<div class="alert alert-{{state}}"><a cla
 var tpl_message_success = Hogan.compile('Successfully saved.');
 var tpl_message_errors = Hogan.compile('The form was saved, but there were errors. Please see below.');
 var tpl_message_server_error = Hogan.compile('The form could not be saved, due to a communication problem with the server. Please try to reload your browser <i class="icon-warning-sign"></i>');
-var tpl_loader = Hogan.compile('<img src="/css/images/ajax-loader.gif" />');
+var tpl_loader = Hogan.compile('<img src="/img/loading.gif" />');
 var tpl_loader_success = Hogan.compile('<span class="text-success"> <i class="icon-ok"></i></span>');
 var tpl_loader_failed = Hogan.compile('<span class="muted"> <i class="icon-warning-sign"></i></span>');
