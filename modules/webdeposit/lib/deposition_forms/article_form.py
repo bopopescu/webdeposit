@@ -26,6 +26,7 @@ from invenio.webdeposit_field_widgets import date_widget, plupload_widget, \
 from invenio.webdeposit_load_fields import fields
 __all__ = ['ArticleForm']
 
+
 def keywords_autocomplete(form, field, term, limit=50):
     return ["Keyword 1", "Keyword 2"]
 
@@ -119,7 +120,6 @@ class ArticleForm(WebDepositForm):
     )
     notes = fields.NotesField(label=_('Notes'), recjson_key='comment')
     plupload_file = fields.FileUploadField(widget=plupload_widget, label="")
-
 
     """ Form Configuration variables """
     _title = _('Submit an Article')

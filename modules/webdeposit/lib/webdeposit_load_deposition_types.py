@@ -34,7 +34,7 @@ CFG_DOC_METADATA = PluginContainer(os.path.join(CFG_PYLIBDIR,
                                                 'invenio',
                                                 'webdeposit_workflows',
                                                 '*_metadata.py'),
-                                    plugin_builder=plugin_builder)
+                                   plugin_builder=plugin_builder)
 
 """
 Create a dict with groups, names and deposition types
@@ -45,6 +45,31 @@ deposition_types = {"Articles & Preprints": \
                     [{"name": "Articles", "dep_type": "Article"}, \
                      {"name": "Preprints", "dep_type": "Preprint"}, \
                      {"name": "Theses", "dep_type": "Thesis"}]}
+
+Used to load all the definitions of webdeposit workflow.
+They must be defined in the deposition_types folder with filname '*_metadata.py'
+Also if you want to rename the workflow, you can redefine the __all__ variable
+
+
+Example of definition:
+
+__all__ = ['MyDeposition']
+
+class MyDeposition(object):
+    # Define the list of functions you want to run for this workflow
+    workflow = [function1(), function2(), function3()]
+
+    # Define the name to be rendered for the deposition
+    dep_type = "My Deposition"
+
+    # Define the name in plural
+    plural = "My depositions"
+
+    # Define in which deposition group it will belong
+    group = "My Depositions Group"
+
+    # Enable the deposition
+    enabled = True
 """
 
 deposition_metadata = {}

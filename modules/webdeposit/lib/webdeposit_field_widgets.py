@@ -23,6 +23,7 @@ from wtforms.widgets import html_params, HTMLString, RadioInput, HiddenInput, \
     Input
 from invenio.jinja2utils import render_template_to_string
 
+
 def date_widget(field, **kwargs):
     field_id = kwargs.pop('id', field.id)
     html = [u'<input class="datepicker" %s type="text">'
@@ -55,7 +56,6 @@ def bootstrap_submit(field, **dummy_kwargs):
                                         value=field.label.text,)
     html = [u'<div style="float:right;" >' + html + u'</div>']
     return HTMLString(u''.join(html))
-
 
 
 class CKEditorWidget(object):
@@ -116,9 +116,7 @@ def dropbox_widget(field, **kwargs):
         </div>' % html_params(id=field_id)]
     return HTMLString(u''.join(html))
 
-#
-#
-#
+
 class ButtonWidget(object):
     """
     Renders a button.
@@ -146,7 +144,7 @@ class ButtonWidget(object):
         params = self.default_params.copy()
         params.update(kwargs)
         params.setdefault('id', field.id)
-        params['class_'] = params.get('class_',"") + " form-button"
+        params['class_'] = params.get('class_', "") + " form-button"
 
         icon = ""
         if self.icon:
@@ -255,7 +253,6 @@ class DynamicItemWidget(ListItemWidget):
         defaults.update(kwargs)
         super(DynamicItemWidget, self).__init__(**defaults)
 
-
     def _sort_button(self):
         return """<a class="sort-element muted sortlink iconlink" rel="tooltip" title="Drag to reorder"><i class="%s icon-large"></i></a>""" % self.icon_reorder
 
@@ -276,7 +273,7 @@ class DynamicItemWidget(ListItemWidget):
     def __call__(self, subfield, **kwargs):
         kwargs.setdefault('id', 'element-' + subfield.id)
         # Are we rendering an empty form element?
-        empty_index = kwargs.pop('empty_index','__index__')
+        empty_index = kwargs.pop('empty_index', '__index__')
         if subfield.name.endswith(empty_index):
             kwargs['class_'] = kwargs.get('class_', '') + ' empty-element'
         elif subfield.name.endswith('__input__'):
@@ -319,7 +316,7 @@ class TagItemWidget(DynamicItemWidget):
                 return '<%s %s><button type="button" class="close remove-element" data-dismiss="alert">&times;</button><span class="tag-title">%s</span>' % (
                     self.html_tag,
                     html_params(
-                        class_=self.class_ + ' ' + kwargs.get('class_','')
+                        class_=self.class_ + ' ' + kwargs.get('class_', '')
                     ),
                     render_template_to_string(
                         self.template,
@@ -328,6 +325,7 @@ class TagItemWidget(DynamicItemWidget):
                     )
                 )
         return ''
+
 
 #
 # List widgets
@@ -416,7 +414,7 @@ class DynamicListWidget(ExtendedListWidget):
         return """<div><span class="pull-right"><a class="add-element"><i class="%s"></i> %s</a></span></div>""" % (self.icon_add, label)
 
     def item_kwargs(self, field, subfield):
-        return { 'empty_index': field.empty_index }
+        return {'empty_index': field.empty_index}
 
     def open_tag(self, field, **kwargs):
         html = super(DynamicListWidget, self).open_tag(field, **kwargs)

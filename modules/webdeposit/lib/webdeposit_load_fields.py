@@ -46,6 +46,7 @@ CFG_FIELDS = PluginContainer(os.path.join(CFG_PYLIBDIR, 'invenio',
                                           '*_field.py'),
                              plugin_builder=plugin_builder)
 
+
 class Fields(object):
     pass
 
@@ -73,7 +74,7 @@ class DynamicFieldList(fields.FieldList):
     """
     def __init__(self, *args, **kwargs):
         from invenio.webdeposit_field_widgets import DynamicListWidget
-        self.widget =kwargs.pop('widget', DynamicListWidget())
+        self.widget = kwargs.pop('widget', DynamicListWidget())
         self.empty_index = kwargs.pop('empty_index', '__index__')
         self.add_label = kwargs.pop('add_label', None)
         super(DynamicFieldList, self).__init__(*args, **kwargs)
@@ -164,4 +165,3 @@ setattr(fields,  DynamicFieldList.__name__,  DynamicFieldList)
 ## Let's report about broken plugins
 open(os.path.join(CFG_LOGDIR, 'broken-deposition-fields.log'), 'w').write(
     pformat(CFG_FIELDS.get_broken_plugins()))
-

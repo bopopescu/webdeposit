@@ -38,21 +38,3 @@ class Article(object):
     plural = "Articles"
     group = "Articles & Preprints"
     enabled = True
-
-"""
-Workflow definition sample
-wf = [
-      set_status(form),  # # This load the WTForm ArticleForm
-      reserve_recid,  # # This reserve a recid for the created record
-      create_record(doc_type),  # # This uses BibField to transform the JSON into MARC using the Article doctype
-      insert_record,  # # This insert the created record
-      set_status(ApprovalWaitingForm("Article")),
-      if_else(check_approval_result),
-      [approve_record("ARTICLE"),
-       send_confirmation_email("approved")
-      ],
-      [reject_record,
-       send_confirmation_email("rejected")
-      ]
-     ]
-"""

@@ -25,6 +25,7 @@ ArticleForm = forms['ArticleForm']
 
 __all__ = ['TestWorkflow']
 
+
 class TestWorkflow(object):
     workflow = [render_form(ArticleForm),
                 wait_for_submission()]

@@ -49,7 +49,6 @@ class TestWebDepositUtils(InvenioTestCase):
         from invenio.webdeposit_workflow import DepositionWorkflow
         from invenio.webdeposit_utils import get_latest_or_new_workflow, \
             get_workflow, delete_workflow, InvenioWebDepositNoDepositionType
-        from invenio.sqlalchemyutils import db
         from invenio.webuser_flask import login_user
 
         login_user(1)
@@ -106,8 +105,6 @@ class TestWebDepositUtils(InvenioTestCase):
         from invenio.webdeposit_utils import get_form, \
             get_form_status, set_form_status, CFG_DRAFT_STATUS
         from invenio.bibworkflow_model import Workflow
-        from invenio.webdeposit_workflow_utils import render_form, \
-            wait_for_submission
 
         for metadata in deposition_metadata.values():
             for wf_function in metadata['workflow']:
@@ -162,12 +159,8 @@ class TestWebDepositUtils(InvenioTestCase):
         assert form_status == CFG_DRAFT_STATUS['finished']
 
     def test_field_functions(self):
-        from datetime import datetime
         from invenio.webdeposit_workflow import DepositionWorkflow
-        from invenio.webdeposit_utils import draft_field_get, draft_field_set, \
-            create_workflow
-        from invenio.webdeposit_deposition_forms.article_form import ArticleForm
-        from invenio.cache import cache
+        from invenio.webdeposit_utils import draft_field_get, draft_field_set
 
         user_id = 1
         workflow = DepositionWorkflow(deposition_type='TestWorkflow',
@@ -189,7 +182,6 @@ class TestWebDepositUtils(InvenioTestCase):
 
         value = draft_field_get(user_id, uuid, 'publisher')
         self.assertTrue(value is 'Test Publishers Association')
-
 
     def test_record_creation(self):
         import os

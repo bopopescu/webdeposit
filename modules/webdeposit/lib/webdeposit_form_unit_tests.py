@@ -22,6 +22,7 @@
 import copy
 from invenio.testutils import make_test_suite, run_test_suite, InvenioTestCase
 
+
 class WebDepositFormTest(InvenioTestCase):
     def setUp(self):
         from invenio.webdeposit_form import WebDepositForm
@@ -33,7 +34,7 @@ class WebDepositFormTest(InvenioTestCase):
 
         def dummy_autocomplete(form, field, term, limit=50):
             if term == 'test':
-                return map(lambda x: field.name + '-' + str(x), range(0,100))[:limit]
+                return map(lambda x: field.name + '-' + str(x), range(0, 100))[:limit]
             return []
 
         class IdentifierTestForm(WebDepositForm):
@@ -95,28 +96,28 @@ class WebDepositFormTest(InvenioTestCase):
     def test_autocomplete_routing(self):
         form = self.form_class()
         self.assertEqual(
-            form.autocomplete('title','Nothing', limit=3),
+            form.autocomplete('title', 'Nothing', limit=3),
             []
         )
         self.assertEqual(
-            form.autocomplete('title','test', limit=3),
+            form.autocomplete('title', 'test', limit=3),
             ['title-0', 'title-1', 'title-2']
         )
         self.assertEqual(
-            len(form.autocomplete('title','test', limit=51)),
+            len(form.autocomplete('title', 'test', limit=51)),
             51
         )
         self.assertEqual(
-            len(form.autocomplete('title','test', limit=200)),
+            len(form.autocomplete('title', 'test', limit=200)),
             100
         )
         self.assertEqual(
-            form.autocomplete('unexistingfield','test', limit=3),
+            form.autocomplete('unexistingfield', 'test', limit=3),
             None
         )
         self.assertEqual(
-            form.autocomplete('related_identifier-0-scheme','test', limit=2),
-            ['related_identifier-0-scheme-0', 'related_identifier-0-scheme-1',]
+            form.autocomplete('related_identifier-0-scheme', 'test', limit=2),
+            ['related_identifier-0-scheme-0', 'related_identifier-0-scheme-1', ]
         )
 
     def test_loading_objectdata(self):
@@ -181,8 +182,6 @@ class WebDepositFormTest(InvenioTestCase):
 
         form = self.form_class(formdata=modified_formdata, **modified_data)
         self.assertEqual(form.data, expected_data)
-
-
 
     def test_update_list_element(self):
         new_title = 'new title'
@@ -321,11 +320,11 @@ class WebDepositFormTest(InvenioTestCase):
 
     def test_messages(self):
         form = self.form_class(**self.object_data)
-        form.title.add_message('t1',state='info')
-        form.title.add_message('t2',state='warning')
-        form.related_identifier.add_message('t3',state='warning')
-        form.related_identifier[0].add_message('t4',state='warning')
-        form.related_identifier[0]['scheme'].add_message('t5',state='warning')
+        form.title.add_message('t1', state='info')
+        form.title.add_message('t2', state='warning')
+        form.related_identifier.add_message('t3', state='warning')
+        form.related_identifier[0].add_message('t4', state='warning')
+        form.related_identifier[0]['scheme'].add_message('t5', state='warning')
 
         self.assertEqual(
             form.messages,
@@ -385,8 +384,8 @@ class WebDepositFormTest(InvenioTestCase):
                 ]
             },
             'fieldlist': [
-                ['d','e'],
-                ['f','g']
+                ['d', 'e'],
+                ['f', 'g']
             ]
         }
 
@@ -397,10 +396,7 @@ class WebDepositFormTest(InvenioTestCase):
         self.assertEqual(form.data, object_data)
 
 
-
-
 TEST_SUITE = make_test_suite(WebDepositFormTest)
 
 if __name__ == "__main__":
     run_test_suite(TEST_SUITE)
-

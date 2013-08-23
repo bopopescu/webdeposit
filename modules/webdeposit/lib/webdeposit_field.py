@@ -300,12 +300,12 @@ class WebDepositField(Field):
         Retrieve field messages
         """
         if self.errors:
-            return { self.name: dict(
+            return {self.name: dict(
                 state='error',
                 messages=self.errors
             )}
         else:
-            return { self.name: dict(
+            return {self.name: dict(
                 state=getattr(self, '_message_state', ''),
                 messages=self._messages
             )}

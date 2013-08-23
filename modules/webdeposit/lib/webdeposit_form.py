@@ -40,6 +40,7 @@ See more about WTForm field flags on:
 http://wtforms.simplecodes.com/docs/1.0.4/fields.html#wtforms.fields.Field.flags
 """
 
+
 def filter_flags(field):
     """
     Return a list of flags (from CFG_FIELD_FLAGS) set on a field.
@@ -289,9 +290,8 @@ class WebDepositForm(Form):
         return dict([
             (
                 fname,
-                msgs if msgs.get('state','') or msgs.get('messages', '') else {}
+                msgs if msgs.get('state', '') or msgs.get('messages', '') else {}
             ) for fname, msgs in _messages.items()
         ])
 
         return _messages
-

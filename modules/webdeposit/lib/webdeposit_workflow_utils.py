@@ -61,8 +61,8 @@ def populate_form_data(form_data):
 
 def render_form(form):
     def render(obj, eng):
-        from invenio.webdeposit_utils import get_last_step, CFG_DRAFT_STATUS, \
-            add_draft,  get_preingested_form_data, preingest_form_data
+        from invenio.webdeposit_utils import CFG_DRAFT_STATUS, add_draft, \
+            get_preingested_form_data, preingest_form_data
 
         uuid = eng.uuid
         user_id = obj.data['user_id']
