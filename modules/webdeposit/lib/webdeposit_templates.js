@@ -11,3 +11,10 @@ var tpl_message_server_error = Hogan.compile('The form could not be saved, due t
 var tpl_loader = Hogan.compile('<img src="/img/loading.gif" />');
 var tpl_loader_success = Hogan.compile('<span class="text-success"> <i class="icon-ok"></i></span>');
 var tpl_loader_failed = Hogan.compile('<span class="muted"> <i class="icon-warning-sign"></i></span>');
+var tpl_file_entry = Hogan.compile('<tr id="{{id}}" class="hide">' +
+    '<td id="{{id}}_link">{{#download_url}}<a href="{{download_url}}">{{filename}}</a>{{/download_url}}{{^download_url}}{{filename}}{{/download_url}}</td>' +
+    '<td>{{filesize}}</td>' +
+    '<td width="30%"><div class="progress{{#striped}} progress-striped{{/striped}} active"><div class="bar" style="width: {{progress}}%;"></div></div></td>' +
+    '<td>{{#removeable}}<a id={{id}}_rm" class="rmlink" rel="tooltip" title="Delete file"><i class="icon-trash"></i></a>{{/removeable}}&nbsp;<a id="{{id_sort}}" class="sortlink" rel="tooltip" title="Re-order files"><i class="icon-align-justify"></i></a></td>' +
+    '</tr>');
+var tpl_file_link = Hogan.compile('<a href="{{download_url}}">{{filename}}</a>');

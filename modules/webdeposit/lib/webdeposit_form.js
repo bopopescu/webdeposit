@@ -215,15 +215,14 @@ function webdeposit_handle_field_values(name, value) {
                 size: file.size
             };
 
-            $('#filelist').append(
-                '<tr id="' + id + '" style="display:none;">' +
-                    '<td id="' + id + '_link">' + file.name + '</td>' +
-                    '<td>' + getBytesWithUnit(file.size) + '</td>' +
-                    '<td width="30%"><div class="progress active"><div class="bar" style="width: 100%;"></div></div></td>' +
-                '</tr>');
+            $('#filelist').append(tpl_file_entry.render({
+                id: id,
+                filename: file.name,
+                filesize: getBytesWithUnit(file.size)
+            }));
             $('#filelist #' + id).show('fast');
         });
-        $('#file-table').show('slow');
+        $('#file-table').show('fast');
     } else {
         webdeposit_clear_error(name);
         has_ckeditor = $('[name=' + name + ']').data('ckeditor');
@@ -412,13 +411,14 @@ function webdeposit_init_plupload(selector, url, delete_url, get_file_url, db_fi
                 plfile.unique_filename = file.unique_filename;
                 ///////
                 uploader.files.push(plfile);
-                $('#filelist').append(
-                    '<tr id="' + plfile.id + '" style="display:none;">' +
-                        '<td><a href="' + get_file_url + "?filename=" + plfile.unique_filename + '">' + plfile.name + '</a></td>' +
-                        '<td>' +  getBytesWithUnit(plfile.size) + '</td>' +
-                        '<td width="30%"><div class="progress active"><div class="bar" style="width: 100%;"></div></div></td>' +
-                        '<td><a id="' + plfile.id + '_rm" class="rmlink"><i class="icon-trash"></i></a></td>' +
-                    '</tr>');
+                $('#filelist').append(tpl_file_entry.render({
+                    id: plfile.id,
+                    filename: plfile.name,
+                    filesize: getBytesWithUnit(plfile.size),
+                    download_url: get_file_url + "?filename=" + plfile.unique_filename,
+                    removeable: true,
+                    progress: 100
+                }));
                 $('#filelist #' + plfile.id).show('fast');
                 $("#" + plfile.id + "_rm").on("click", function(event) {
                     uploader.removeFile(plfile);
@@ -445,7 +445,10 @@ function webdeposit_init_plupload(selector, url, delete_url, get_file_url, db_fi
             }).done(function(data){
                 $('#' + file.id + " .progress").removeClass("progress-striped");
                 $('#' + file.id + " .bar").css('width', "100%");
-                $('#' + file.id + '_link').html('<a href="' + get_file_url + "?filename=" + data + '">' + file.name + '</a>');
+                $('#' + file.id + '_link').html(tpl_file_link.render({
+                    filename: file.name,
+                    download_url: get_file_url + "?filename=" + data
+                }));
             });
         });
         dropbox_files = [];
@@ -493,24 +496,23 @@ function webdeposit_init_plupload(selector, url, delete_url, get_file_url, db_fi
     });
 
 
-
     uploader.bind('UploadFile', function(up, file) {
         $('#' + file.id + "_rm").hide();
     });
-
 
     uploader.bind('FilesAdded', function(up, files) {
         $('#uploadfiles').removeClass("disabled");
         $('#file-table').show('slow');
         up.total.reset();
         $.each(files, function(i, file) {
-            $('#filelist').append(
-                '<tr id="' + file.id + '" style="display:none;z-index:-100;">' +
-                '<td id="' + file.id + '_link">' + file.name + '</td>' +
-                '<td>' + getBytesWithUnit(file.size) + '</td>' +
-                '<td width="30%"><div class="progress progress-striped active"><div class="bar" style="width: 0%;"></div></div></td>' +
-                '<td><a id="' + file.id + '_rm" class="rmlink"><i class="icon-trash"></i></a></td>' +
-                '</tr>');
+
+            $('#filelist').append(tpl_file_entry.render({
+                    id: file.id,
+                    filename: file.name,
+                    filesize: getBytesWithUnit(file.size),
+                    removeable: true,
+                    progress: 0
+            }));
             $('#filelist #' + file.id).show('fast');
             $('#' + file.id + '_rm').on("click", function(event){
                 uploader.removeFile(file);
@@ -523,7 +525,10 @@ function webdeposit_init_plupload(selector, url, delete_url, get_file_url, db_fi
         $('#' + file.id + " .progress").removeClass("progress-striped");
         $('#' + file.id + " .bar").css('width', "100%");
         $('#' + file.id + '_rm').show();
-        $('#' + file.id + '_link').html('<a href="' + get_file_url + "?filename=" + responseObj.response + '">' + file.name + '</a>');
+        $('#' + file.id + '_link').html(tpl_file_link.render({
+            filename: file.name,
+            download_url: get_file_url + "?filename=" + responseObj.response
+        }));
         file.unique_filename = responseObj.response;
         if (uploader.total.queued === 0)
             $('#stopupload').hide();
@@ -535,7 +540,23 @@ function webdeposit_init_plupload(selector, url, delete_url, get_file_url, db_fi
         up.total.reset();
     });
 
-    $("#filelist").sortable();
+    $("#filelist").sortable({
+        forcePlaceholderSize: true,
+        forceHelperSizeType: true,
+        handle: ".sortlink",
+        start: function(event, ui) {
+            $(ui.placeholder).show();
+            $(ui.placeholder).html("<td></td><td></td><td></td><td></td>");
+            $(ui.placeholder).css("visibility", "");
+            header_ths = $("#file-table thead th");
+            item_tds = $(ui.helper).find("td");
+            placeholder_tds = $(ui.placeholder).find("td");
+            for(var i = 0; i < header_ths.length; i++){
+                $(item_tds[i]).width($(header_ths[i]).width());
+                $(placeholder_tds[i]).width($(header_ths[i]).width());
+            }
+        }
+    });
     $("#filelist").disableSelection();
 }
 
