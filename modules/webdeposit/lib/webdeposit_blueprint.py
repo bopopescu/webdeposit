@@ -221,7 +221,7 @@ def delete(deposition_type, uuid):
         flash(_('Invalid deposition type `%s`.' % deposition_type), 'error')
         return redirect(url_for('.index_deposition_types'))
     delete_workflow(current_user.get_id(), uuid)
-    flash(deposition_type + _(' deposition deleted!'), 'error')
+    flash(deposition_type + _(' deposition was deleted!'), 'success')
     return redirect(url_for("webdeposit.index",
                             deposition_type=deposition_type))
 
@@ -241,7 +241,6 @@ def create_new(deposition_type):
               'error')
         return redirect(url_for('.index_deposition_types'))
     uuid = workflow.get_uuid()
-    flash(deposition_type + _(' deposition created!'), 'info')
     return redirect(url_for("webdeposit.add",
                             deposition_type=deposition_type,
                             uuid=uuid))

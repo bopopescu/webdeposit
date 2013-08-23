@@ -1,6 +1,6 @@
 var tpl_webdeposit_status_saved = Hogan.compile('Saved <i class="icon-ok"></i>');
 var tpl_webdeposit_status_saved_with_errors = Hogan.compile('<span class="text-warning">Saved, but with errors <i class="icon-warning-sign"></i></span>');
-var tpl_webdeposit_status_saving = Hogan.compile('Saving <img src="/css/images/ajax-loader.gif" />');
+var tpl_webdeposit_status_saving = Hogan.compile('Saving <img src="/img/loading.gif" />');
 var tpl_webdeposit_status_error = Hogan.compile('<span class="text-error">Not saved due to server error. Please try to reload your browser <i class="icon-warning-sign"></i></span>');
 var tpl_field_message = Hogan.compile('{{#messages}}<div>{{{.}}}</div>{{/messages}}');
 var tpl_required_field_message = Hogan.compile('{{{label}}} is required.');

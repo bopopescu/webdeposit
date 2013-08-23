@@ -677,9 +677,9 @@ function webdeposit_init_autocomplete(selector, save_url, url_template, handle_s
         }
 
         if($(item).attr('type') != 'hidden') {
-            try {
+            if($.fn.typeahead.hasOwnProperty('setQuery')) {
                 webdeposit_init_typeaheadjs(item, url, save_url, handle_selection);
-            } catch(err) {
+            } else {
                 webdeposit_init_bootstrap_typeahead(item, url, save_url, handle_selection);
             }
         }
@@ -702,7 +702,7 @@ function webdeposit_init_bootstrap_typeahead(item, url, save_url, handle_selecti
             url: url,
             data: $.param({term: query})
         }).done(function(data) {
-            process(data.results);
+            process(data);
             $(item).removeClass('ui-autocomplete-loading');
         }).fail(function(data) {
             process([query]);
@@ -710,10 +710,15 @@ function webdeposit_init_bootstrap_typeahead(item, url, save_url, handle_selecti
         });
     }
 
+    function updater(datum) {
+        handle_selection(save_url, this.$element, datum, $(this.$element).attr('name'));
+    }
+
     $(item).typeahead({
         source: source,
         minLength: 5,
-        items: 50
+        items: 50,
+        updater: updater
     });
 }
 
@@ -726,14 +731,19 @@ function webdeposit_init_typeaheadjs(item, url, save_url, handle_selection) {
         remote: url + "?term=%QUERY",
     });
     $(item).on('typeahead:selected', function(e, datum, name){
-        handle_selection(e, save_url, item, datum, name);
+        handle_selection(save_url, item, datum, name);
     });
 }
 
 /**
  * Handle selection of an autocomplete option
  */
-function webdeposit_typeahead_selection(e, save_url, item, datum, name) {
+function webdeposit_typeahead_selection(save_url, item, datum, name) {
+    if(typeof datum == 'string') {
+        var value = datum;
+        datum = {value: value, fields: {}};
+        datum.fields = value;
+    }
     if(datum.fields !== undefined) {
         if(field_lists !== undefined){
             var input_index = '__input__';
@@ -743,7 +753,9 @@ function webdeposit_typeahead_selection(e, save_url, item, datum, name) {
             if(field_lists[field_list_name] !== undefined){
                 field_lists[field_list_name].append_element(datum.fields, input_index);
                 // Clear type ahead field
-                $(item).typeahead('setQuery', "");
+                if($.fn.typeahead.hasOwnProperty('setQuery')) {
+                   $(item).typeahead('setQuery', "");
+                }
                 $(item).val("");
                 // Save list
                 data = $('#'+field_list_name).serialize_object();
@@ -758,7 +770,9 @@ function webdeposit_typeahead_selection(e, save_url, item, datum, name) {
         for(var field_name in datum.fields) {
             webdeposit_handle_field_values(field_name, datum.fields[field_name]);
             if(field_name == name) {
-                $(item).typeahead('setQuery', datum.fields[field_name]);
+                if($.fn.typeahead.hasOwnProperty('setQuery')) {
+                    $(item).typeahead('setQuery', datum.fields[field_name]);
+                }
             }
         }
         //FIXME: sends wrong field names
@@ -901,21 +915,31 @@ $.fn.fieldlist = function(opts) {
         if(data !== null){
             // Remove prefix from field name
             newdata = {};
-            for(var field in data) {
-                if(field.indexOf(field_prefix) === 0){
-                    newdata[field.slice(field_prefix.length)] = data[field];
-                } else {
-                    newdata[field] = data[field];
+            if (typeof data == 'object'){
+                for(var field in data) {
+                    if(field.indexOf(field_prefix) === 0){
+                        newdata[field.slice(field_prefix.length)] = data[field];
+                    } else {
+                        newdata[field] = data[field];
+                    }
                 }
-            }
-            // Update value for each field.
-            $.each(newdata, function(field, value){
-                var input = root.find(selector_prefix+field);
+                // Update value for each field.
+                $.each(newdata, function(field, value){
+                    var input = root.find(selector_prefix+field);
+                    if(input.length !== 0) {
+                        // Keep old value
+                        input.val(input.val()+value);
+                    }
+                });
+            } else {
+                newdata['value'] = data;
+                var input = root.find('#'+options.prefix+options.sep+options.index_suffix);
                 if(input.length !== 0) {
                     // Keep old value
-                    input.val(input.val()+value);
+                    input.val(input.val()+data);
                 }
-            });
+            }
+
             root.find("."+options.tag_title_cssclass).html(
                 tag_template.render(newdata)
             );

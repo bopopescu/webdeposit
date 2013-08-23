@@ -82,6 +82,9 @@ class CKEditorWidget(object):
         return HTMLString(u''.join(html))
 
 ckeditor_widget = CKEditorWidget()
+"""
+Default CKEditor widget. Will use the configuration defined globally in Invenio.
+"""
 
 
 def dropbox_widget(field, **kwargs):
@@ -243,20 +246,21 @@ class DynamicItemWidget(ListItemWidget):
         <div><span>"buttons</span>:field</div>
     """
     def __init__(self, **kwargs):
+        self.icon_reorder = kwargs.pop('icon_reorder', 'icon-th-list')
+        self.icon_remove = kwargs.pop('icon_remove', 'icon-remove-sign')
         defaults = dict(
             html_tag='div',
             with_label=True,
-
         )
         defaults.update(kwargs)
         super(DynamicItemWidget, self).__init__(**defaults)
 
 
     def _sort_button(self):
-        return """<a class="sort-element muted sortlink iconlink" rel="tooltip" title="Drag to reorder"><i class="icon-reorder icon-large"></i></a>"""
+        return """<a class="sort-element muted sortlink iconlink" rel="tooltip" title="Drag to reorder"><i class="%s icon-large"></i></a>""" % self.icon_reorder
 
     def _remove_button(self):
-        return """<a class="remove-element muted iconlink" rel="tooltip" title="Click to remove"><i class="icon-remove-sign icon-large"></i></a>"""
+        return """<a class="remove-element muted iconlink" rel="tooltip" title="Click to remove"><i class="%s icon-large"></i></a>""" % self.icon_remove
 
     def render_subfield(self, subfield, **kwargs):
         html = []
@@ -306,6 +310,12 @@ class TagItemWidget(DynamicItemWidget):
             if subfield.name.endswith('__input__'):
                 return '<%s>' % self.html_tag
             else:
+                ctx = {}
+                if(isinstance(subfield.data, basestring)):
+                    ctx['value'] = subfield.data
+                elif subfield.data:
+                    ctx.update(subfield.data)
+
                 return '<%s %s><button type="button" class="close remove-element" data-dismiss="alert">&times;</button><span class="tag-title">%s</span>' % (
                     self.html_tag,
                     html_params(
@@ -314,7 +324,7 @@ class TagItemWidget(DynamicItemWidget):
                     render_template_to_string(
                         self.template,
                         _from_string=True,
-                        **subfield.data
+                        **ctx
                     )
                 )
         return ''
@@ -389,8 +399,11 @@ class DynamicListWidget(ExtendedListWidget):
     for each item to sort and remove the item.
     """
     item_widget = DynamicItemWidget()
+    icon_add = "icon-plus"
 
     def __init__(self, **kwargs):
+        self.icon_add = kwargs.pop('icon_add', self.icon_add)
+        self.item_widget = kwargs.pop('item_widget', self.item_widget)
         defaults = dict(
             html_tag='div',
             class_='dynamic-field-list',
@@ -400,7 +413,7 @@ class DynamicListWidget(ExtendedListWidget):
 
     def _add_button(self, field):
         label = getattr(field, 'add_label', None) or "Add %s" % field.label.text
-        return """<div><span class="pull-right"><a class="add-element"><i class="icon-plus"></i> %s</a></span></div>""" % label
+        return """<div><span class="pull-right"><a class="add-element"><i class="%s"></i> %s</a></span></div>""" % (self.icon_add, label)
 
     def item_kwargs(self, field, subfield):
         return { 'empty_index': field.empty_index }

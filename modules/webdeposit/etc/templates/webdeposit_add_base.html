@@ -90,6 +90,24 @@ span.ui-icon.ui-icon-circle-triangle-e { color: transparent; cursor: pointer; }
     cursor: move;
     margin-left: 10px;
 }
+.empty-element {
+   display: none;
+}
+.sortlink:hover {
+   cursor: move;
+}
+.remove-element {
+   padding-left: 10px;
+}
+.field-list-element {
+    margin-bottom: 10px;
+}
+.field-list-element ul.inline {
+    margin: 0;
+}
+.tag {
+    cursor: move;
+}
 </style>
 {%- endblock css %}
 
@@ -147,7 +165,7 @@ span.ui-icon.ui-icon-circle-triangle-e { color: transparent; cursor: pointer; }
             {% endblock form_group %}
         {% endfor %}
     {% endblock form_body %}
-
+    {% block form_footer scoped %}{{ form_action_bar() }}{% endblock form_footer %}
     </form>
     </div>
     {% if form._drafting %}
