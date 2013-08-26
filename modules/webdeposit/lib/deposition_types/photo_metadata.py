@@ -24,22 +24,18 @@ from invenio.webdeposit_workflow_utils import authorize_user, \
                                               export_marc_from_json, \
                                               create_record_from_marc
 
-
 __all__ = ['Photo']
 
 PhotoForm = forms['PhotoForm']
 
-dep_type = "Photo"
-plural = "Photos"
-group = "Multimedia & Arts"
-wf = [authorize_user(),
-      render_form(PhotoForm),
-      wait_for_submission(),
-      export_marc_from_json(),
-      create_record_from_marc()]
 
-Photo = {"dep_type": dep_type,
-         "workflow": wf,
-         "plural": plural,
-         "group": group,
-         "enabled": True}
+class Photo(object):
+    workflow = [authorize_user(),
+                render_form(PhotoForm),
+                wait_for_submission(),
+                export_marc_from_json(),
+                create_record_from_marc()]
+    dep_type = "Photo"
+    plural = "Photos"
+    group = "Multimedia & Arts"
+    enabled = True

@@ -32,9 +32,9 @@ def plugin_builder(plugin_name, plugin_code):
 
 CFG_DOC_METADATA = PluginContainer(os.path.join(CFG_PYLIBDIR,
                                                 'invenio',
-                                                'webdeposit_deposition_types',
+                                                'webdeposit_workflows',
                                                 '*_metadata.py'),
-                                   plugin_builder=plugin_builder)
+                                    plugin_builder=plugin_builder)
 
 """
 Create a dict with groups, names and deposition types
@@ -51,15 +51,19 @@ deposition_metadata = {}
 deposition_types = {}
 
 for dep in CFG_DOC_METADATA.itervalues():
-    if dep is not None:
-        deposition_metadata[dep['dep_type']] = dict()
-        deposition_metadata[dep['dep_type']]["workflow"] = dep['workflow']
+    if dep.enabled:
+        if dep is not None:
+            deposition_metadata[dep.dep_type] = dict()
+            deposition_metadata[dep.dep_type]["workflow"] = dep.workflow
+            deposition_metadata[dep.dep_type]["workflow_name"] = dep.__name__
+            if hasattr(dep, 'collection'):
+                deposition_metadata[dep.dep_type]["collection"] = dep.collection
 
-    if dep['group'] not in deposition_types:
-        deposition_types[dep['group']] = []
-    if dep["enabled"]:
-        deposition_types[dep['group']].append({"name": dep['plural'],
-                                               "dep_type": dep["dep_type"]})
+        if dep.group not in deposition_types:
+            deposition_types[dep.group] = []
+        if dep.enabled:
+            deposition_types[dep.group].append({"name": dep.plural,
+                                                "dep_type": dep.dep_type})
 
 ## Let's report about broken plugins
 open(os.path.join(CFG_LOGDIR, 'broken-depositions.log'), 'w').write(

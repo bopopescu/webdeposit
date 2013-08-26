@@ -49,7 +49,6 @@ from urllib2 import urlopen, URLError
 
 from invenio.cache import cache
 from invenio.sqlalchemyutils import db
-from invenio.webdeposit_model import WebDepositDraft
 from invenio.bibworkflow_model import Workflow
 from invenio.bibworkflow_config import CFG_WORKFLOW_STATUS
 from invenio.webdeposit_load_forms import forms
@@ -165,31 +164,40 @@ def draft_field_list_setter(field_name, value):
 #
 # Workflow functions
 #
+class InvenioWebDepositNoDepositionType(Exception):
+    pass
+
 
 def get_latest_or_new_workflow(deposition_type, user_id=None):
     """ Creates new workflow or returns a new one """
 
     user_id = user_id or current_user.get_id()
-    wf = deposition_metadata[deposition_type]["workflow"]
+    try:
+        # Check if deposition type is valid.
+        deposition_metadata[deposition_type]
+    except KeyError, e:
+        # deposition type not found
+        raise InvenioWebDepositNoDepositionType(str(e))
 
     # get latest draft in order to get workflow's uuid
     try:
         latest_workflow = Workflow.get_most_recent(
-            Workflow.user_id == user_id,
+            Workflow.id_user == user_id,
             Workflow.name == deposition_type,
             Workflow.module_name == 'webdeposit',
-            Workflow.status != CFG_WORKFLOW_STATUS.FINISHED)
+            Workflow.status != CFG_WORKFLOW_STATUS.COMPLETED
+        )
     except NoResultFound:
         # We didn't find other workflows
         # Let's create a new one
         return DepositionWorkflow(deposition_type=deposition_type,
-                                  workflow=wf)
+                                  user_id=user_id)
 
     # Create a new workflow
     # based on the latest draft's uuid
-    uuid = latest_workflow.uuid
     return DepositionWorkflow(deposition_type=deposition_type,
-                              workflow=wf, uuid=uuid)
+                              uuid=latest_workflow.uuid,
+                              user_id=user_id)
 
 
 def get_workflow(uuid, deposition_type=None):
@@ -204,26 +212,27 @@ def get_workflow(uuid, deposition_type=None):
         return None
 
     try:
-        wf = deposition_metadata[deposition_type]["workflow"]
-    except KeyError:
+        # Check if deposition type is valid.
+        deposition_metadata[deposition_type]
+    except KeyError, e:
         # deposition type not found
-        return None
-    return DepositionWorkflow(uuid=uuid,
-                              deposition_type=deposition_type,
-                              workflow=wf)
+        raise InvenioWebDepositNoDepositionType(str(e))
+
+    return DepositionWorkflow(deposition_type=deposition_type, uuid=uuid)
 
 
 def create_workflow(deposition_type, user_id=None):
     """ Creates a new workflow and returns it """
-    try:
-        wf = deposition_metadata[deposition_type]["workflow"]
-    except KeyError:
-        # deposition type not found
-        print "no workflow found"
-        return None
 
-    return DepositionWorkflow(deposition_type=deposition_type,
-                              workflow=wf, user_id=user_id)
+    user_id = user_id or current_user.get_id()
+    try:
+        # Check if deposition type is valid.
+        deposition_metadata[deposition_type]
+    except KeyError, e:
+        # deposition type not found
+        raise InvenioWebDepositNoDepositionType(str(e))
+
+    return DepositionWorkflow(deposition_type=deposition_type, user_id=user_id)
 
 
 def delete_workflow(dummy_user_id, uuid):
@@ -242,11 +251,15 @@ def get_form(user_id, uuid, step=None, formdata=None, load_draft=True,
     Returns the current state of the workflow in a form or a previous
     state (step)
 
-    @param user_id:
+    @param user_id: the id of the user.
+    @type user_id: int
 
-    @param uuid:
+    @param uuid: the unique identifier of the workflow that the form belongs to.
+    @type uuid: str or UUID
 
-    @param step:
+    @param step: the step inside the workflow that the form was rendered. Used to
+    get previous forms. If not defined, it returns the last one.
+    @type: int
 
     @param formdata:
         Dictionary of formdata.
@@ -318,7 +331,7 @@ def save_form(user_id, uuid, form):
     Saves the draft form_values and form_field_flags of a form.
     """
     json_data = dict((key, value) for key, value in form.json_data.items()
-                if value is not None)
+                     if value is not None)
 
     draft_data_update = {
         'form_values': json_data,
@@ -385,7 +398,6 @@ def draft_field_get(user_id, uuid, field_name, subfield_name=None):
     values = \
         Workflow.get_extra_data(user_id=user_id, uuid=uuid,
                                 getter=draft_getter())['form_values']
-
     try:
         if subfield_name is not None:
             return values[field_name][subfield_name]
@@ -557,8 +569,11 @@ def get_preingested_form_data(user_id, uuid=None, key=None, cached_data=False):
 
     if cached_data:
         return cache.get(str(user_id) + ':cached_form_data')
-    return Workflow.get_extra_data(user_id, uuid=uuid,
-                                   getter=get_preingested_data(key))
+    try:
+        return Workflow.get_extra_data(user_id, uuid=uuid,
+                                       getter=get_preingested_data(key))
+    except NoResultFound:
+        return None
 
 
 def validate_preingested_data(user_id, uuid, deposition_type=None):
@@ -597,21 +612,10 @@ def get_all_drafts(user_id):
         db.session.
         query(Workflow.name,
               db.func.count(Workflow.uuid)).
-        filter(Workflow.status != CFG_WORKFLOW_STATUS.FINISHED,
-               Workflow.user_id == user_id).
+        filter(Workflow.status != CFG_WORKFLOW_STATUS.COMPLETED,
+               Workflow.id_user == user_id).
         group_by(Workflow.name).
         all())
-
-    drafts = dict(
-        db.session.query(Workflow.name,
-                         db.func.count(
-                         db.func.distinct(WebDepositDraft.uuid))).
-        join(WebDepositDraft.workflow).
-        filter(db.and_(Workflow.user_id == user_id,
-                       Workflow.status != CFG_WORKFLOW_STATUS.FINISHED)).
-        group_by(Workflow.name).all())
-
-    return drafts
 
 
 def get_draft(user_id, uuid, field_name=None):
@@ -639,8 +643,8 @@ def draft_field_get_all(user_id, deposition_type):
     """
 
     ## Select drafts with max step workflow.
-    workflows = Workflow.get(Workflow.status != CFG_WORKFLOW_STATUS.FINISHED,
-                             Workflow.user_id == user_id,
+    workflows = Workflow.get(Workflow.status != CFG_WORKFLOW_STATUS.COMPLETED,
+                             Workflow.id_user == user_id,
                              Workflow.name == deposition_type,
                              Workflow.module_name == 'webdeposit').all()
 
@@ -757,7 +761,6 @@ def deposit_files(user_id, deposition_type, uuid, preingest=False):
             chunk = request.form['chunk']
         except KeyError:
             chunks = None
-            pass
 
         current_chunk = request.files['file']
         try:

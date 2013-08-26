@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 ##
 ## This file is part of Invenio.
-## Copyright (C) 2013 CERN.
+## Copyright (C) 2012, 2013 CERN.
 ##
 ## Invenio is free software; you can redistribute it and/or
 ## modify it under the terms of the GNU General Public License as
@@ -18,22 +18,17 @@
 ## 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from invenio.webdeposit_load_forms import forms
-from invenio.webdeposit_workflow_utils import authorize_user, \
-                                              render_form, \
-                                              wait_for_submission, \
-                                              export_marc_from_json, \
-                                              create_record_from_marc
-__all__ = ['Thesis']
-ThesisForm = forms['ThesisForm']
+from invenio.webdeposit_workflow_utils import render_form, wait_for_submission
+
+ArticleForm = forms['ArticleForm']
 
 
-class Thesis(object):
-    workflow = [authorize_user(),
-                render_form(ThesisForm),
-                wait_for_submission(),
-                export_marc_from_json(),
-                create_record_from_marc()]
-    dep_type = "Thesis"
-    plural = "Theses"
-    group = "Articles & Preprints"
-    enabled = True
+__all__ = ['TestWorkflow']
+
+class TestWorkflow(object):
+    workflow = [render_form(ArticleForm),
+                wait_for_submission()]
+    dep_type = "TestWorkflow"
+    plural = "TestWorkflows"
+    group = ""
+    enabled = False

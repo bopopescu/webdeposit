@@ -66,9 +66,8 @@ def render_form(form):
 
         uuid = eng.uuid
         user_id = obj.data['user_id']
-        #TODO: create out of the getCurrTaskId() which is a list
-        # an incremental key that represents also steps in complex workflows.
-        step = get_last_step(eng.getCurrTaskId())
+        # TODO: get the current step from the object
+        step = max(obj.get_current_task())  # data['step']
         form_type = form.__name__
 
         if obj.data.has_key('form_values') and obj.data['form_values'] is not None:
@@ -129,6 +128,7 @@ def export_marc_from_json():
         steps_num = obj.data['steps_num']
 
         from invenio.webdeposit_utils import get_form
+        from invenio.webdeposit_load_deposition_types import deposition_metadata
         json_reader = JsonReader()
 
         try:
@@ -158,13 +158,16 @@ def export_marc_from_json():
 
         deposition_type = \
             db.session.query(Workflow.name).\
-            filter(Workflow.user_id == user_id,
+            filter(Workflow.id_user == user_id,
                    Workflow.uuid == uuid).\
             one()[0]
 
         # Get the collection from configuration
-        # FIXME: Collection should be fully configurable.
-        json_reader['collection.primary'] = deposition_type
+        if 'collection' in deposition_metadata[deposition_type]:
+            json_reader['collection.primary'] = \
+                deposition_metadata[deposition_type]['collection']
+        else:
+            json_reader['collection.primary'] = deposition_type
 
         if 'recid' not in json_reader or 'record ID' not in json_reader:
             # Record is new, reserve record id
@@ -175,14 +178,10 @@ def export_marc_from_json():
             obj.data['recid'] = json_reader['recid']
             obj.data['title'] = json_reader['title.title']
 
-        workflow = Workflow.query.filter(Workflow.uuid == uuid).one()
-        workflow.extra_data['recid'] = obj.data['recid']
-        Workflow.query.\
-            filter(Workflow.uuid == uuid).\
-            update({'extra_data': workflow.extra_data})
+        Workflow.set_extra_data(user_id=user_id, uuid=uuid,
+                                key='recid', value=obj.data['recid'])
 
-        marc = json_reader.legacy_export_as_marc()
-        obj.data['marc'] = marc
+        obj.data['marc'] = json_reader.legacy_export_as_marc()
     return export
 
 

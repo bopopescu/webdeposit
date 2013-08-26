@@ -23,23 +23,18 @@ from invenio.webdeposit_workflow_utils import authorize_user, \
                                               wait_for_submission, \
                                               export_marc_from_json, \
                                               create_record_from_marc
-
 __all__ = ['Preprint']
-
 
 PreprintForm = forms['PreprintForm']
 
-dep_type = "Preprint"
-plural = "Preprints"
-group = "Articles & Preprints"
-wf = [authorize_user(),
-      render_form(PreprintForm),
-      wait_for_submission(),
-      export_marc_from_json(),
-      create_record_from_marc()]
 
-Preprint = {"dep_type": dep_type,
-            "workflow": wf,
-            "plural": plural,
-            "group": group,
-            "enabled": True}
+class Preprint(object):
+    workflow = [authorize_user(),
+                render_form(PreprintForm),
+                wait_for_submission(),
+                export_marc_from_json(),
+                create_record_from_marc()]
+    dep_type = "Preprint"
+    plural = "Preprints"
+    group = "Articles & Preprints"
+    enabled = True

@@ -33,7 +33,6 @@ from flask import current_app, \
 from werkzeug.utils import secure_filename
 from uuid import uuid1 as new_uuid
 
-from invenio.cache import cache
 from invenio.webdeposit_load_deposition_types import deposition_types, \
     deposition_metadata
 from invenio.webinterface_handler_flask_utils import _, InvenioBlueprint
@@ -55,7 +54,8 @@ from invenio.webdeposit_utils import get_form, \
     get_all_drafts, \
     deposit_files, \
     delete_file, \
-    save_form
+    save_form, \
+    InvenioWebDepositNoDepositionType
 from invenio.webuser_flask import current_user
 from invenio.bibworkflow_config import CFG_WORKFLOW_STATUS
 
@@ -196,7 +196,8 @@ def error_check(uuid):
         abort(400)
 
     # Process data, run validation, set in workflow object and return result
-    result = draft_form_process_and_validate(current_user.get_id(), uuid, request.json)
+    result = draft_form_process_and_validate(current_user.get_id(), uuid,
+                                             request.json)
 
     try:
         return jsonify(result)
@@ -228,7 +229,12 @@ def create_new(deposition_type):
     if deposition_type not in deposition_metadata:
         flash(_('Invalid deposition type `%s`.' % deposition_type), 'error')
         return redirect(url_for('.index_deposition_types'))
-    workflow = create_workflow(deposition_type, current_user.get_id())
+    try:
+        workflow = create_workflow(deposition_type, current_user.get_id())
+    except InvenioWebDepositNoDepositionType:
+        flash(_('Deposition type `') + deposition_type + '` not found.',
+              'error')
+        return redirect(url_for('.index_deposition_types'))
     uuid = workflow.get_uuid()
     flash(deposition_type + _(' deposition created!'), 'info')
     return redirect(url_for("webdeposit.add",
@@ -262,8 +268,8 @@ def index(deposition_type):
     from invenio.bibworkflow_model import Workflow
     past_depositions = \
         Workflow.get(Workflow.name == deposition_type,
-                     Workflow.user_id == user_id,
-                     Workflow.status == CFG_WORKFLOW_STATUS.FINISHED).\
+                     Workflow.id_user == user_id,
+                     Workflow.status == CFG_WORKFLOW_STATUS.COMPLETED).\
         all()
 
     return render_template('webdeposit_index.html', drafts=drafts,
@@ -300,23 +306,26 @@ def add(deposition_type, uuid):
     elif uuid is None:
         # get the latest one. if there is no workflow created
         # lets create a new workflow with given deposition type
-        workflow = get_latest_or_new_workflow(deposition_type)
+        try:
+            workflow = get_latest_or_new_workflow(deposition_type,
+                                                  current_user.get_id())
+        except InvenioWebDepositNoDepositionType:
+            flash(_('Deposition type `') + deposition_type + '` not found.',
+                  'error')
         uuid = workflow.get_uuid()
-        #flash(_('Deposition %s') % (uuid,), 'info')
         return redirect(url_for('.add', deposition_type=deposition_type,
                                 uuid=uuid))
     else:
         # get workflow with specific uuid
-        workflow = get_workflow(uuid, deposition_type)
+        try:
+            workflow = get_workflow(uuid, deposition_type)
+        except InvenioWebDepositNoDepositionType:
+            flash(_('Deposition type `') + deposition_type + '` not found.',
+                  'error')
+            return redirect(url_for('.index_deposition_types'))
         if workflow is None:
             flash(_('Deposition with uuid `') + uuid + '` not found.', 'error')
             return redirect(url_for('.index_deposition_types'))
-
-    cache.delete_many(str(current_user.get_id()) + ":current_deposition_type",
-                      str(current_user.get_id()) + ":current_uuid")
-    cache.add(str(current_user.get_id()) + ":current_deposition_type",
-              deposition_type)
-    cache.add(str(current_user.get_id()) + ":current_uuid", uuid)
 
     current_app.config['breadcrumbs_map'][request.endpoint] = [
         (_('Home'), '')] + blueprint.breadcrumbs + \
@@ -362,19 +371,18 @@ def add(deposition_type, uuid):
 
     workflow.run()
     status = workflow.get_status()
-    if status != CFG_WORKFLOW_STATUS.FINISHED and \
-            status != CFG_WORKFLOW_STATUS.ERROR:
+    if status == CFG_WORKFLOW_STATUS.ERROR:
+        flash(deposition_type + _(' deposition %s has returned error.'), 'error')
+        current_app.logger.error('Deposition: %s has returned error. %d' % uuid)
+        return redirect(url_for('.index_deposition_types'))
+    elif status != CFG_WORKFLOW_STATUS.COMPLETED:
         # render current step of the workflow
         # the `workflow.get_output` function returns also the template
         return render_template(**workflow.get_output())
-    elif status == CFG_WORKFLOW_STATUS.FINISHED:
+    elif status == CFG_WORKFLOW_STATUS.COMPLETED:
         msg = deposition_type + _(' deposition has been successfully finished.')
         recid = workflow.get_data('recid')
         if recid is not None:
             msg += ' Record available <a href=/record/%s>here</a>.' % recid
         flash(msg, 'success')
-        return redirect(url_for('.index_deposition_types'))
-    elif status == CFG_WORKFLOW_STATUS.ERROR:
-        flash(deposition_type + _(' deposition %s has returned error.'), 'error')
-        current_app.logger.error('Deposition: %s has returned error. %d' % uuid)
         return redirect(url_for('.index_deposition_types'))

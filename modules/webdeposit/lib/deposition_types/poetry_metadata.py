@@ -23,23 +23,17 @@ from invenio.webdeposit_workflow_utils import authorize_user, \
                                               wait_for_submission, \
                                               export_marc_from_json, \
                                               create_record_from_marc
-
 __all__ = ['Poetry']
-
-
 PoemForm = forms['PoemForm']
 
-dep_type = "Poetry"
-plural = "Poems"
-group = "Multimedia & Arts"
-wf = [authorize_user(),
-      render_form(PoemForm),
-      wait_for_submission(),
-      export_marc_from_json(),
-      create_record_from_marc()]
 
-Poetry = {"dep_type": dep_type,
-          "workflow": wf,
-          "plural": plural,
-          "group": group,
-          "enabled": True}
+class Poetry(object):
+    workflow = [authorize_user(),
+                render_form(PoemForm),
+                wait_for_submission(),
+                export_marc_from_json(),
+                create_record_from_marc()]
+    dep_type = "Poetry"
+    plural = "Poems"
+    group = "Multimedia & Arts"
+    enabled = True
