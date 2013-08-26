@@ -32,7 +32,8 @@ from invenio.webdeposit_utils import create_workflow,\
     preingest_form_data, \
     get_preingested_form_data, \
     validate_preingested_data, \
-    deposit_files
+    deposit_files, \
+    InvenioWebDepositNoDepositionType
 from invenio.webuser_flask import current_user
 from invenio.jsonutils import wash_for_json
 
@@ -97,6 +98,19 @@ def json_get(deposition_type):
     else:
         return ''
 
+@blueprint.route('/list/', methods=['GET'])
+@blueprint.invenio_api_key_authenticated
+def depositions_list():
+    pass
+    # TODO: implement this function :P
+
+
+@blueprint.route('/delete/', methods=['GET'])
+@blueprint.invenio_api_key_authenticated
+def delete():
+    pass
+    # TODO: implement this function :P
+
 
 @blueprint.route('/submit/<deposition_type>/', methods=['GET'])
 @blueprint.invenio_api_key_authenticated
@@ -104,7 +118,10 @@ def deposition_submit(deposition_type):
     uuid = request.values['uuid']
 
     user_id = current_user.get_id()
-    workflow = get_workflow(uuid, deposition_type)
+    try:
+        workflow = get_workflow(uuid, deposition_type)
+    except InvenioWebDepositNoDepositionType:
+        return jsonify
     errors = validate_preingested_data(user_id, uuid, deposition_type=None)
     if errors:
         return jsonify(errors)
